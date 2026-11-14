@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>영어 필체 교정 연습 "ENGLISH HANDWRITING"</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Cute Korean & English Handwriting Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&family=Gaegu:wght@400;700&family=Gowun+Dodum&family=Patrick+Hand&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Gowun Dodum"', 'sans-serif'],
+            cute: ['"Gaegu"', 'cursive'],
+            hand: ['"Patrick Hand"', '"Comic Neue"', 'cursive'],
+          },
+          colors: {
+            cream: '#FFFDF7',
+            butter: '#FFF5D6',
+            peach: '#FFE4E1',
+            coral: '#FF8A80',
+            mint: '#E0F7FA',
+            mintDark: '#4DD0E1',
+            lavender: '#F3E5F5',
+            lavenderDark: '#BA68C8',
+            cocoa: '#4E342E',
+          },
+          boxShadow: {
+            'cute': '0 6px 0 rgba(78, 52, 46, 0.12)',
+            'cute-sm': '0 3px 0 rgba(78, 52, 46, 0.12)',
+            'soft': '0 10px 25px -5px rgba(255, 138, 128, 0.18)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* 기본 배경 및 터치 최적화 */
+    body {
+      background-color: #FFFDF7;
+      background-image: radial-gradient(#F8BBD0 1.2px, transparent 1.2px), radial-gradient(#B2EBF2 1.2px, #FFFDF7 1.2px);
+      background-size: 36px 36px;
+      background-position: 0 0, 18px 18px;
+      color: #4E342E;
+      font-family: 'Gowun Dodum', sans-serif;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 갤럭시탭 S펜/터치 캔버스 팜 리젝션 및 스크롤 방지 */
+    .handwriting-canvas {
+      touch-action: none;
+      cursor: crosshair;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* 귀여운 버튼 눌림 효과 */
+    .btn-cute {
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .btn-cute:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 rgba(78, 52, 46, 0.15);
+    }
+
+    /* 말풍선 및 뱃지 애니메이션 */
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-5px); }
+    }
+    .animate-float {
+      animation: floatSlow 3s ease-in-out infinite;
+    }
+
+    /* 커스텀 스크롤바 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #FFF5D6;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #FFAB91;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- 토스트 알림 컨테이너 (alert 대신 사용) -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4 sm:px-0"></div>
+
+  <!-- 메인 앱 컨테이너 -->
+  <div id="app" class="flex-1 flex flex-col max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6"></div>
+
+  <!-- Firebase SDK (선택 사항: 깃허브 호스팅 시 클라우드 동기화용) -->
+  <script type="module">
+    // =========================================================================
+    // [선택 사항] 깃허브 페이지(GitHub Pages) 배포 후 어느 기기/브라우저에서나
+    // 학생 포트폴리오와 교사 피드백이 실시간 동기화되게 하려면 아래 Firebase 설정을 채워주세요!
+    // (비워두면 자동으로 현재 브라우저의 localStorage 모드로 완벽하게 작동합니다.)
+    // =========================================================================
+    const FIREBASE_CONFIG = {
+      apiKey: "", // 예: "AIzaSyD-..."
+      authDomain: "", // 예: "my-handwriting-app.firebaseapp.com"
+      databaseURL: "", // 예: "https://my-handwriting-app-default-rtdb.firebaseio.com"
+      projectId: "", // 예: "my-handwriting-app"
+      storageBucket: "",
+      messagingSenderId: "",
+      appId: ""
+    };
+
+    window.CLOUD_ENABLED = Boolean(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL);
+
+    if (window.CLOUD_ENABLED) {
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js").then(async ({ initializeApp }) => {
+        const { getDatabase, ref, set, get, onValue } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+        const firebaseApp = initializeApp(FIREBASE_CONFIG);
+        const db = getDatabase(firebaseApp);
+        window.FirebaseDB = { db, ref, set, get, onValue };
+        console.log("☁️ Firebase 클라우드 동기화 모드 활성화됨!");
+        if (window.onCloudReady) window.onCloudReady();
+      }).catch(err => {
+        console.warn("Firebase 로드 실패, 로컬 저장소 모드로 전환합니다:", err);
+        window.CLOUD_ENABLED = false;
+      });
+    }
+  </script>
+
+  <script>
+    /**
+     * =========================================================================
+     * 1. 중학교 1, 2, 3학년 맞춤형 10차시 영어 필체 교정 커리큘럼 데이터
+     * =========================================================================
+     */
+    const DEFAULT_CURRICULUM = {
+      1: [
+        {
+          session: 1,
+          title: "키가 큰 알파벳 (Tall Letters)",
+          words: "ball  doll  hat  kite  lion  tree",
+          sentence: "A tall lion has a blue hat.",
+          meaning: "키 큰 사자가 파란 모자를 쓰고 있어요.",
+          tip: "b, d, h, k, l, t는 맨 위 빨간선(1번선)까지 쭉 올라가요!"
+        },
+        {
+          session: 2,
+          title: "꼬리가 긴 알파벳 (Tail Letters)",
+          words: "good  jump  pink  queen  yellow",
+          sentence: "A yellow puppy jumps quickly.",
+          meaning: "노란 강아지가 빠르게 점프해요.",
+          tip: "g, j, p, q, y의 꼬리는 파란 기준선 아래 4번선까지 내려가요!"
+        },
+        {
+          session: 3,
+          title: "가운데 줄 맞춤 소문자 (Small Letters)",
+          words: "apple  cat  egg  moon  orange",
+          sentence: "I eat a sweet apple and an egg.",
+          meaning: "나는 달콤한 사과와 달걀을 먹어요.",
+          tip: "a, c, e, m, n, o, s는 점선(2번선)과 파란선(3번선) 사이에 예쁘게 맞춰요."
+        },
+        {
+          session: 4,
+          title: "단어 사이 띄어쓰기 (Word Spacing)",
+          words: "I   am   a   happy   student.",
+          sentence: "I am a happy middle school student.",
+          meaning: "나는 행복한 중학생입니다.",
+          tip: "단어와 단어 사이는 소문자 'o' 하나가 들어갈 만큼 일정하게 띄어 써요!"
+        },
+        {
+          session: 5,
+          title: "문장의 첫 글자 대문자와 마침표",
+          words: "Hello!   My   name   is   Minji.",
+          sentence: "Hello! My name is Minji.",
+          meaning: "안녕! 내 이름은 민지야.",
+          tip: "문장의 맨 앞 글자는 1번선까지 크게 대문자로, 끝에는 마침표(.)를 꼭 찍어요."
+        },
+        {
+          session: 6,
+          title: "좋아하는 것 표현하기",
+          words: "like   sweet   strawberry   milk",
+          sentence: "I like sweet strawberry milk.",
+          meaning: "나는 달콤한 딸기 우유를 좋아해요.",
+          tip: "글자가 오른쪽이나 왼쪽으로 너무 눕지 않게 반듯하게 세워서 써보세요."
+        },
+        {
+          session: 7,
+          title: "즐거운 우리 학교 생활",
+          words: "study   English   together   class",
+          sentence: "We study English together in class.",
+          meaning: "우리는 수업 시간에 함께 영어를 공부해요.",
+          tip: "대문자 W와 E는 1번선부터 3번선까지 꽉 차게 써주세요."
+        },
+        {
+          session: 8,
+          title: "오늘의 날씨와 기분",
+          words: "Today   sunny   warm   breeze",
+          sentence: "Today is sunny and very warm.",
+          meaning: "오늘은 맑고 매우 따뜻해요.",
+          tip: "y의 꼬리가 다음 단어와 부딪히지 않도록 간격을 유지해요."
+        },
+        {
+          session: 9,
+          title: "친구에게 건네는 응원 한마디",
+          words: "You   can   do   it   well!",
+          sentence: "You can do it very well!",
+          meaning: "너는 정말 잘해낼 수 있어!",
+          tip: "느낌표(!)도 1번선에서 시작해 3번선 위에 점을 찍어 마무리해요."
+        },
+        {
+          session: 10,
+          title: "10차시 완성! 나의 다짐 문장",
+          words: "Practice   makes   perfect!",
+          sentence: "Practice makes my handwriting perfect!",
+          meaning: "연습이 나의 글씨체를 완벽하게 만들어요!",
+          tip: "1차시부터 배운 줄 맞춤과 띄어쓰기를 떠올리며 정성껏 써보세요!"
+        }
+      ],
+      2: [
+        {
+          session: 1,
+          title: "빈도부사와 일상 습관",
+          words: "usually   wake   seven   morning",
+          sentence: "I usually wake up at seven.",
+          meaning: "나는 보통 7시에 잠에서 깨요.",
+          tip: "u, s, a, l 같은 소문자 높이를 점선에 일정하게 맞추면 훨씬 단정해 보여요."
+        },
+        {
+          session: 2,
+          title: "과거의 즐거운 경험 쓰기",
+          words: "visited   science   museum   yesterday",
+          sentence: "We visited the museum yesterday.",
+          meaning: "우리는 어제 박물관에 방문했어요.",
+          tip: "과거형 어미 -ed의 d는 1번선까지 올라가는 키 큰 글자예요!"
+        },
+        {
+          session: 3,
+          title: "미래의 계획 표현하기",
+          words: "going   read   interesting   book",
+          sentence: "I am going to read a book.",
+          meaning: "나는 책을 한 권 읽을 예정이에요.",
+          tip: "going의 g 두 개 모두 4번선까지 꼬리를 예쁘게 내려주세요."
+        },
+        {
+          session: 4,
+          title: "비교급으로 생각 나타내기",
+          words: "Health   more   important   money",
+          sentence: "Health is more important than money.",
+          meaning: "건강은 돈보다 더 중요합니다.",
+          tip: "문장이 길어질수록 단어 간격이 좁아지지 않게 주의하며 써요."
+        },
+        {
+          session: 5,
+          title: "감각동사로 느낌 묘사하기",
+          words: "flower   smells   very   sweet",
+          sentence: "This yellow flower smells very sweet.",
+          meaning: "이 노란 꽃은 매우 달콤한 향기가 나요.",
+          tip: "f는 1번선에서 시작해 3번선까지, l은 반듯한 직선으로 내려 그어요."
+        },
+        {
+          session: 6,
+          title: "가주어 It과 to부정사 구문",
+          words: "fun   learn   new   language",
+          sentence: "It is fun to learn English.",
+          meaning: "영어를 배우는 것은 재미있어요.",
+          tip: "It의 I와 t의 키 차이를 분명하게 구분해서 써보세요."
+        },
+        {
+          session: 7,
+          title: "접속사 when과 쉼표(,) 쓰기",
+          words: "When   rains,   listen   music",
+          sentence: "When it rains, I listen to music.",
+          meaning: "비가 올 때, 나는 음악을 들어요.",
+          tip: "쉼표(,)는 3번선(파란 기준선)에 걸치듯 살짝 아래로 찍어요."
+        },
+        {
+          session: 8,
+          title: "조동사 should로 조언하기",
+          words: "should   protect   our   environment",
+          sentence: "We should protect our environment.",
+          meaning: "우리는 우리의 환경을 보호해야 해요.",
+          tip: "긴 단어(environment)는 철자 사이 간격을 촘촘하고 고르게 유지해요."
+        },
+        {
+          session: 9,
+          title: "현재완료 경험 표현하기",
+          words: "have   never   seen   giant   tree",
+          sentence: "I have never seen such a big tree.",
+          meaning: "나는 그렇게 큰 나무를 본 적이 없어요.",
+          tip: "v, r, n, u가 서로 헷갈리지 않게 뾰족함과 둥근 모양을 구분해요."
+        },
+        {
+          session: 10,
+          title: "10차시 완성! 성장을 응원하는 글",
+          words: "Small   steps   big   changes",
+          sentence: "Small steps lead to big changes.",
+          meaning: "작은 발걸음이 큰 변화로 이어집니다.",
+          tip: "중2 10차시 마무리! 나만의 반듯하고 세련된 필체를 뽐내보세요."
+        }
+      ],
+      3: [
+        {
+          session: 1,
+          title: "주격 관계대명사 who 활용하기",
+          words: "friend   who   loves   playing   music",
+          sentence: "I have a friend who loves music.",
+          meaning: "나는 음악을 사랑하는 친구가 한 명 있어요.",
+          tip: "긴 복문에서도 모든 소문자의 기준선(3번선)이 흔들리지 않게 유지하세요."
+        },
+        {
+          session: 2,
+          title: "목적격 관계대명사 that 문장",
+          words: "book   that   read   was   touching",
+          sentence: "The book that I read was touching.",
+          meaning: "내가 읽었던 그 책은 감동적이었어요.",
+          tip: "t와 h의 가로획과 꺾임이 깔끔해야 가독성이 훨씬 좋아집니다."
+        },
+        {
+          session: 3,
+          title: "명사를 꾸며주는 현재분사",
+          words: "Look   boy   playing   the   guitar",
+          sentence: "Look at the boy playing the guitar.",
+          meaning: "기타를 연주하고 있는 저 소년을 보세요.",
+          tip: "playing의 y와 g 꼬리가 나란히 예쁜 균형을 이루도록 써보세요."
+        },
+        {
+          session: 4,
+          title: "수동태 구문과 고유명사 대문자",
+          words: "Hangul   invented   King   Sejong",
+          sentence: "Hangul was invented by King Sejong.",
+          meaning: "한글은 세종대왕에 의해 창제되었습니다.",
+          tip: "Hangul, King, Sejong 같은 고유명사의 첫 글자는 모두 대문자로 써요!"
+        },
+        {
+          session: 5,
+          title: "상상을 펼치는 가정법 과거",
+          words: "If   were   bird,   could   fly",
+          sentence: "If I were a bird, I could fly to you.",
+          meaning: "내가 만약 새라면, 너에게 날아갈 수 있을 텐데.",
+          tip: "대문자 I의 위아래 가로획을 깔끔하게 써서 소문자 l과 구분해요."
+        },
+        {
+          session: 6,
+          title: "양보의 접속사 although 구문",
+          words: "Although   hard,   never   gave   up",
+          sentence: "Although it was hard, we never gave up.",
+          meaning: "비록 힘들었지만, 우리는 결코 포기하지 않았어요.",
+          tip: "Although처럼 긴 단어는 첫 글자 대문자 A 이후 소문자 높이를 일정하게!"
+        },
+        {
+          session: 7,
+          title: "간접의문문과 물음표(?)",
+          words: "know   what   time   train   leaves?",
+          sentence: "Do you know what time the train leaves?",
+          meaning: "기차가 몇 시에 출발하는지 아시나요?",
+          tip: "물음표(?)는 1번선 아래에서 둥글게 시작해 3번선 위에 점을 찍어요."
+        },
+        {
+          session: 8,
+          title: "분사구문으로 자연스럽게 연결하기",
+          words: "Walking   along   street,   met   him",
+          sentence: "Walking along the street, I met him.",
+          meaning: "거리를 따라 걷다가, 나는 그를 만났어요.",
+          tip: "W의 네 꼭짓점이 균형 잡히도록 대칭을 맞추어 써보세요."
+        },
+        {
+          session: 9,
+          title: "지구를 지키는 우리의 실천",
+          words: "Every   small   action   save   planet",
+          sentence: "Every small action can save our planet.",
+          meaning: "모든 작은 행동이 우리의 지구를 구할 수 있어요.",
+          tip: "글자 기울기를 수직으로 일정하게 유지하면 인쇄체처럼 단정해집니다."
+        },
+        {
+          session: 10,
+          title: "10차시 완성! 나를 빛내는 영어 명언",
+          words: "Believe   yourself   shine   bright",
+          sentence: "Believe in yourself and shine bright.",
+          meaning: "너 자신을 믿고 밝게 빛나라.",
+          tip: "중3 10차시 완주를 축하해요! 고등학교에서도 빛날 멋진 필체로 마무리하세요."
+        }
+      ]
+    };
+
+    /**
+     * =========================================================================
+     * 2. 데이터 저장소 추상화 계층 (StorageService)
+     *    - 기본: 브라우저 localStorage 사용 (즉시 오프라인/체험 가능)
+     *    - 확장: Firebase 연동 시 모든 기기에서 학번/비번으로 실시간 동기화
+     * =========================================================================
+     */
+    const STORAGE_KEY = 'english_handwriting_app_v1';
+    const TEACHER_PASS_KEY = 'english_handwriting_teacher_pw';
+
+    const StorageService = {
+      getDefaultData() {
+        return {
+          teacherPassword: localStorage.getItem(TEACHER_PASS_KEY) || '1234',
+          curriculum: JSON.parse(JSON.stringify(DEFAULT_CURRICULUM)),
+          students: {
+            // 체험용 샘플 학생 데이터 1명 미리 구성 (교사 대시보드에서 바로 확인 가능)
+            "10101": {
+              id: "10101",
+              password: "111",
+              name: "김민지",
+              grade: 1,
+              submissions: {
+                1: {
+                  session: 1,
+                  grade: 1,
+                  step1Img: null,
+                  step2Img: null,
+                  submittedAt: "2026-11-12 09:15",
+                  status: "approved", // 'submitted' | 'resubmit' | 'approved'
+                  teacherComment: "첫 차시인데도 b, d, h, l 키가 빨간선까지 반듯하게 잘 올라갔어요! 참 잘했어요 🌟",
+                  teacherOverlayImg: null,
+                  notified: false
+                }
+              }
+            }
+          }
+        };
+      },
+
+      loadAll() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            const init = this.getDefaultData();
+            this.saveAll(init);
+            return init;
+          }
+          const parsed = JSON.parse(raw);
+          if (!parsed.curriculum) parsed.curriculum = JSON.parse(JSON.stringify(DEFAULT_CURRICULUM));
+          if (!parsed.students) parsed.students = {};
+          if (!parsed.teacherPassword) parsed.teacherPassword = '1234';
+          return parsed;
+        } catch (e) {
+          console.error("데이터 로드 오류:", e);
+          return this.getDefaultData();
+        }
+      },
+
+      saveAll(data) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          if (window.CLOUD_ENABLED && window.FirebaseDB) {
+            const { db, ref, set } = window.FirebaseDB;
+            set(ref(db, 'handwritingApp'), data).catch(err => console.warn("클라우드 저장 지연:", err));
+          }
+        } catch (e) {
+          showToast("저장 공간이 부족할 수 있습니다. 오래된 데이터를 정리해 주세요.", "error");
+        }
+      },
+
+      async syncFromCloud() {
+        if (!window.CLOUD_ENABLED || !window.FirebaseDB) return null;
+        try {
+          const { db, ref, get } = window.FirebaseDB;
+          const snapshot = await get(ref(db, 'handwritingApp'));
+          if (snapshot.exists()) {
+            const cloudData = snapshot.val();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+            return cloudData;
+          }
+        } catch (e) {
+          console.warn("클라우드 동기화 오류:", e);
+        }
+        return null;
+      }
+    };
+
+    /**
+     * =========================================================================
+     * 3. 전역 상태 관리 (AppState)
+     * =========================================================================
+     */
+    const AppState = {
+      data: StorageService.loadAll(),
+      role: null, // null | 'student' | 'teacher'
+      currentStudentId: null,
+      studentTab: 'sessions', // 'sessions' | 'practice' | 'portfolio'
+      activeGrade: 1,
+      activeSession: 1,
+      practiceStep: 1, // 1: 연하게 따라쓰기, 2: 혼자 쓰기
+
+      // 교사 대시보드 상태
+      teacherFilterGrade: 'all',
+      teacherFilterStatus: 'all',
+      teacherTab: 'students', // 'students' | 'curriculum'
+      reviewingStudentId: null,
+      reviewingSession: null,
+      editCurriculumGrade: 1
+    };
+
+    window.onCloudReady = async () => {
+      const cloudData = await StorageService.syncFromCloud();
+      if (cloudData) {
+        AppState.data = cloudData;
+        renderApp();
+        showToast("☁️ 클라우드 서버와 최신 데이터가 동기화되었습니다!", "success");
+      }
+    };
+
+    /**
+     * =========================================================================
+     * 4. 유틸리티 함수 (알림 토스트, TTS 음성 읽기, 학번 파싱)
+     * =========================================================================
+     */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const colors = {
+        info: 'bg-white border-mintDark text-cocoa',
+        success: 'bg-mint border-mintDark text-cocoa',
+        warning: 'bg-butter border-amber-400 text-cocoa',
+        error: 'bg-peach border-coral text-cocoa'
+      };
+      const icons = {
+        info: 'sparkles',
+        success: 'check-circle-2',
+        warning: 'bell-ring',
+        error: 'alert-circle'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl border-2 shadow-cute ${colors[type] || colors.info} transition-all duration-300 transform translate-y-0 opacity-100`;
+      toast.innerHTML = `
+        <i data-lucide="${icons[type] || 'sparkles'}" class="w-5 h-5 shrink-0 text-coral"></i>
+        <p class="text-sm font-bold leading-snug">${message}</p>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3400);
+    }
+
+    // 원어민 TTS 발음 듣기 (Web Speech API)
+    function speakEnglish(text, rate = 0.95) {
+      if (!('speechSynthesis' in window)) {
+        showToast("이 브라우저는 음성 듣기(TTS)를 지원하지 않습니다.", "warning");
+        return;
+      }
+      window.speechSynthesis.cancel();
+      // 여러 공백을 자연스러운 쉼표 간격으로 변환해 또박또박 읽도록 처리
+      const cleanText = text.replace(/\s{2,}/g, ', ');
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'en-US';
+      utterance.rate = rate;
+      utterance.pitch = 1.05;
+
+      // 영어 원어민 음성 우선 선택
+      const voices = window.speechSynthesis.getVoices();
+      const enVoice = voices.find(v => v.lang.includes('en-US') && (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Natural')))
+                   || voices.find(v => v.lang.startsWith('en'));
+      if (enVoice) utterance.voice = enVoice;
+
+      window.speechSynthesis.speak(utterance);
+      showToast(rate < 0.8 ? "🐢 천천히 발음을 들려줄게요!" : "🔊 원어민 발음을 잘 듣고 따라 써보세요!", "info");
+    }
+
+    // 학번 첫 자리로 학년 자동 판별 (1xxxx -> 1학년, 2xxxx -> 2학년, 3xxxx -> 3학년)
+    function detectGradeFromId(studentId) {
+      const firstChar = String(studentId).trim().charAt(0);
+      if (firstChar === '1') return 1;
+      if (firstChar === '2') return 2;
+      if (firstChar === '3') return 3;
+      return 1;
+    }
+
+    function formatNow() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    /**
+     * =========================================================================
+     * 5. 4선지 영어 필체 노트 캔버스 컨트롤러 (갤럭시탭 S펜 최적화)
+     * =========================================================================
+     */
+    const CanvasManager = {
+      step1Strokes: [],
+      step2Strokes: [],
+      currentColor: '#2D3748',
+      currentWidth: 4,
+      isEraser: false,
+      activeCanvas: null,
+      ctx: null,
+      isDrawing: false,
+      currentStroke: null,
+
+      resetSessionStrokes(existingSub = null) {
+        this.step1Strokes = [];
+        this.step2Strokes = [];
+        this.isEraser = false;
+        this.currentColor = '#2D3748';
+        this.currentWidth = 4;
+      },
+
+      initPracticeCanvas() {
+        const canvas = document.getElementById('practice-canvas');
+        if (!canvas) return;
+        this.activeCanvas = canvas;
+        this.ctx = canvas.getContext('2d');
+
+        // 반응형 고해상도(Retina / 갤럭시탭 고DPI) 캔버스 크기 설정
+        const resizeCanvas = () => {
+          const parent = canvas.parentElement;
+          const rect = parent.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          const width = rect.width;
+          const height = Math.max(300, Math.min(380, window.innerHeight * 0.42));
+
+          canvas.style.width = `${width}px`;
+          canvas.style.height = `${height}px`;
+          canvas.width = width * dpr;
+          canvas.height = height * dpr;
+
+          this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+          this.ctx.scale(dpr, dpr);
+          this.redraw();
+        };
+
+        resizeCanvas();
+        window.removeEventListener('resize', this._resizeHandler);
+        this._resizeHandler = resizeCanvas;
+        window.addEventListener('resize', this._resizeHandler);
+
+        // Pointer Events (S펜 필압 및 터치 지원)
+        canvas.onpointerdown = (e) => {
+          e.preventDefault();
+          canvas.setPointerCapture(e.pointerId);
+          this.isDrawing = true;
+          const pos = this.getPointerPos(e, canvas);
+          const pressure = e.pressure && e.pressure > 0 ? e.pressure : 0.5;
+          this.currentStroke = {
+            color: this.isEraser ? '#FFFFFF' : this.currentColor,
+            width: this.isEraser ? 22 : this.currentWidth * (0.75 + pressure * 0.5),
+            isEraser: this.isEraser,
+            points: [pos]
+          };
+          const targetArray = AppState.practiceStep === 1 ? this.step1Strokes : this.step2Strokes;
+          targetArray.push(this.currentStroke);
+          this.redraw();
+        };
+
+        canvas.onpointermove = (e) => {
+          if (!this.isDrawing || !this.currentStroke) return;
+          e.preventDefault();
+          const pos = this.getPointerPos(e, canvas);
+          this.currentStroke.points.push(pos);
+          this.redraw();
+        };
+
+        const endDraw = (e) => {
+          if (!this.isDrawing) return;
+          this.isDrawing = false;
+          this.currentStroke = null;
+        };
+        canvas.onpointerup = endDraw;
+        canvas.onpointercancel = endDraw;
+      },
+
+      getPointerPos(e, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      },
+
+      // 4선지 가이드라인 및 연하게 따라쓰기 텍스트 렌더링
+      drawFourLinesAndGuide(ctx, width, height, lesson, step) {
+        ctx.clearRect(0, 0, width, height);
+
+        // 종이 배경
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+
+        // 2줄의 4선지 세트 (윗줄: 핵심 단어, 아랫줄: 예문 문장)
+        const rows = [
+          { topY: height * 0.14, lineGap: height * 0.085, text: lesson.words },
+          { topY: height * 0.56, lineGap: height * 0.085, text: lesson.sentence }
+        ];
+
+        rows.forEach((row, idx) => {
+          const y1 = row.topY;                  // 1번선: Top Ascender Line (연분홍 실선)
+          const y2 = row.topY + row.lineGap;    // 2번선: Midline x-height (보라/회색 점선)
+          const y3 = row.topY + row.lineGap * 2;// 3번선: Baseline (하늘/파랑 실선 - 기준선)
+          const y4 = row.topY + row.lineGap * 3;// 4번선: Descender Line (연분홍 실선)
+
+          const padX = 24;
+          const lineW = width - padX * 2;
+
+          // 줄 번호 라벨 (1, 2, 3, 4)
+          ctx.font = 'bold 11px "Gowun Dodum", sans-serif';
+          ctx.fillStyle = '#BDBDBD';
+          ctx.fillText('1', 8, y1 + 4);
+          ctx.fillText('2', 8, y2 + 4);
+          ctx.fillStyle = '#42A5F5';
+          ctx.fillText('3', 8, y3 + 4);
+          ctx.fillStyle = '#BDBDBD';
+          ctx.fillText('4', 8, y4 + 4);
+
+          // 1번선 (맨 위 빨간/분홍선)
+          ctx.beginPath();
+          ctx.setLineDash([]);
+          ctx.strokeStyle = '#FFCDD2';
+          ctx.lineWidth = 1.5;
+          ctx.moveTo(padX, y1);
+          ctx.lineTo(padX + lineW, y1);
+          ctx.stroke();
+
+          // 2번선 (가운데 점선 - 소문자 키 높이)
+          ctx.beginPath();
+          ctx.setLineDash([6, 6]);
+          ctx.strokeStyle = '#CE93D8';
+          ctx.lineWidth = 1.5;
+          ctx.moveTo(padX, y2);
+          ctx.lineTo(padX + lineW, y2);
+          ctx.stroke();
+
+          // 3번선 (파란 기준선 - 모든 글자가 앉는 자리)
+          ctx.beginPath();
+          ctx.setLineDash([]);
+          ctx.strokeStyle = '#64B5F6';
+          ctx.lineWidth = 2;
+          ctx.moveTo(padX, y3);
+          ctx.lineTo(padX + lineW, y3);
+          ctx.stroke();
+
+          // 4번선 (맨 아래 꼬리선)
+          ctx.beginPath();
+          ctx.setLineDash([]);
+          ctx.strokeStyle = '#FFCDD2';
+          ctx.lineWidth = 1.5;
+          ctx.moveTo(padX, y4);
+          ctx.lineTo(padX + lineW, y4);
+          ctx.stroke();
+
+          // Step 1 (연하게 따라쓰기)일 때 4선지 비율에 맞춰 연한 가이드 글씨 그리기
+          if (step === 1) {
+            ctx.save();
+            // 1번선~3번선 높이에 딱 맞춘 손글씨 폰트 크기 자동 계산
+            let fontSize = Math.round(row.lineGap * 2.35);
+            ctx.font = `400 ${fontSize}px "Patrick Hand", "Comic Neue", cursive`;
+
+            // 문장이 가로폭을 넘지 않도록 자동 축소 보정
+            const maxTextWidth = lineW - 20;
+            let measured = ctx.measureText(row.text).width;
+            if (measured > maxTextWidth) {
+              fontSize = Math.floor(fontSize * (maxTextWidth / measured));
+              ctx.font = `400 ${fontSize}px "Patrick Hand", "Comic Neue", cursive`;
+            }
+
+            ctx.fillStyle = 'rgba(144, 164, 174, 0.34)';
+            ctx.textBaseline = 'alphabetic';
+            // baseline(y3)에 정확히 글자 밑선을 맞춤
+            ctx.fillText(row.text, padX + 12, y3 - 1);
+
+            // 따라쓰기 점선 외곽선 살짝 추가
+            ctx.setLineDash([2, 3]);
+            ctx.strokeStyle = 'rgba(120, 144, 156, 0.42)';
+            ctx.lineWidth = 1;
+            ctx.strokeText(row.text, padX + 12, y3 - 1);
+            ctx.restore();
+          } else {
+            // Step 2 (혼자 쓰기)일 때 좌측 상단에 작은 안내 표시
+            ctx.save();
+            ctx.font = 'bold 12px "Gowun Dodum", sans-serif';
+            ctx.fillStyle = '#90A4AE';
+            ctx.fillText(idx === 0 ? '✏️ 핵심 단어 혼자 쓰기' : '✏️ 예문 문장 혼자 쓰기', padX + 6, y1 - 6);
+            ctx.restore();
+          }
+        });
+      },
+
+      redraw() {
+        if (!this.activeCanvas || !this.ctx) return;
+        const rect = this.activeCanvas.getBoundingClientRect();
+        const lesson = AppState.data.curriculum[AppState.activeGrade].find(l => l.session === AppState.activeSession);
+        this.drawFourLinesAndGuide(this.ctx, rect.width, rect.height, lesson, AppState.practiceStep);
+
+        const strokes = AppState.practiceStep === 1 ? this.step1Strokes : this.step2Strokes;
+        this.renderStrokes(this.ctx, strokes);
+      },
+
+      renderStrokes(ctx, strokes) {
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        strokes.forEach(stroke => {
+          if (!stroke.points || stroke.points.length === 0) return;
+          ctx.beginPath();
+          ctx.strokeStyle = stroke.color;
+          ctx.lineWidth = stroke.width;
+
+          if (stroke.points.length === 1) {
+            ctx.fillStyle = stroke.color;
+            ctx.arc(stroke.points[0].x, stroke.points[0].y, stroke.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            for (let i = 1; i < stroke.points.length - 1; i++) {
+              const midX = (stroke.points[i].x + stroke.points[i + 1].x) / 2;
+              const midY = (stroke.points[i].y + stroke.points[i + 1].y) / 2;
+              ctx.quadraticCurveTo(stroke.points[i].x, stroke.points[i].y, midX, midY);
+            }
+            const last = stroke.points[stroke.points.length - 1];
+            ctx.lineTo(last.x, last.y);
+            ctx.stroke();
+          }
+        });
+        ctx.restore();
+      },
+
+      undo() {
+        const target = AppState.practiceStep === 1 ? this.step1Strokes : this.step2Strokes;
+        if (target.length > 0) {
+          target.pop();
+          this.redraw();
+        }
+      },
+
+      clearCurrentStep() {
+        if (AppState.practiceStep === 1) this.step1Strokes = [];
+        else this.step2Strokes = [];
+        this.redraw();
+        showToast("현재 연습장을 깨끗하게 지웠어요! 🧹", "info");
+      },
+
+      // 제출용 스냅샷 이미지 생성 (Step 1 & Step 2 각각 렌더링하여 DataURL 반환)
+      exportStepImage(stepNumber) {
+        const tempCanvas = document.createElement('canvas');
+        const w = 720;
+        const h = 340;
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        const tCtx = tempCanvas.getContext('2d');
+
+        const lesson = AppState.data.curriculum[AppState.activeGrade].find(l => l.session === AppState.activeSession);
+        this.drawFourLinesAndGuide(tCtx, w, h, lesson, stepNumber);
+
+        // 원본 캔버스와 출력 캔버스 비율 보정하여 획 렌더링
+        const origRect = this.activeCanvas ? this.activeCanvas.getBoundingClientRect() : { width: w, height: h };
+        const scaleX = w / (origRect.width || w);
+        const scaleY = h / (origRect.height || h);
+
+        const rawStrokes = stepNumber === 1 ? this.step1Strokes : this.step2Strokes;
+        const scaledStrokes = rawStrokes.map(s => ({
+          ...s,
+          width: s.width * ((scaleX + scaleY) / 2),
+          points: s.points.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }))
+        }));
+
+        this.renderStrokes(tCtx, scaledStrokes);
+        return tempCanvas.toDataURL('image/png', 0.85);
+      }
+    };
+
+    /**
+     * =========================================================================
+     * 6. 교사용 빨간펜 첨삭 캔버스 컨트롤러
+     * =========================================================================
+     */
+    const TeacherPenManager = {
+      strokes: [],
+      isDrawing: false,
+      penColor: '#E53935', // 교사 첨삭 빨간펜 기본
+      penWidth: 4,
+
+      initOverlayCanvas() {
+        const canvas = document.getElementById('teacher-overlay-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        const setupSize = () => {
+          const rect = canvas.parentElement.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          canvas.style.width = `${rect.width}px`;
+          canvas.style.height = `${rect.height}px`;
+          canvas.width = rect.width * dpr;
+          canvas.height = rect.height * dpr;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.scale(dpr, dpr);
+          this.redraw();
+        };
+
+        setupSize();
+
+        canvas.onpointerdown = (e) => {
+          e.preventDefault();
+          canvas.setPointerCapture(e.pointerId);
+          this.isDrawing = true;
+          const rect = canvas.getBoundingClientRect();
+          this.strokes.push({
+            color: this.penColor,
+            width: this.penWidth,
+            points: [{ x: e.clientX - rect.left, y: e.clientY - rect.top }]
+          });
+          this.redraw();
+        };
+
+        canvas.onpointermove = (e) => {
+          if (!this.isDrawing) return;
+          e.preventDefault();
+          const rect = canvas.getBoundingClientRect();
+          const lastStroke = this.strokes[this.strokes.length - 1];
+          lastStroke.points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          this.redraw();
+        };
+
+        const stop = () => { this.isDrawing = false; };
+        canvas.onpointerup = stop;
+        canvas.onpointercancel = stop;
+      },
+
+      redraw() {
+        const canvas = document.getElementById('teacher-overlay-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        CanvasManager.renderStrokes(ctx, this.strokes);
+      },
+
+      undo() {
+        this.strokes.pop();
+        this.redraw();
+      },
+
+      clear() {
+        this.strokes = [];
+        this.redraw();
+      },
+
+      exportOverlayImage() {
+        const canvas = document.getElementById('teacher-overlay-canvas');
+        if (!canvas || this.strokes.length === 0) return null;
+        return canvas.toDataURL('image/png');
+      }
+    };
+
+    /**
+     * =========================================================================
+     * 7. 화면 렌더링 함수들 (로그인 / 학생 화면 / 교사 대시보드)
+     * =========================================================================
+     */
+    function renderApp() {
+      const app = document.getElementById('app');
+      if (!AppState.role) {
+        app.innerHTML = renderLoginScreen();
+      } else if (AppState.role === 'student') {
+        app.innerHTML = renderStudentLayout();
+        if (AppState.studentTab === 'practice') {
+          setTimeout(() => CanvasManager.initPracticeCanvas(), 30);
+        }
+      } else if (AppState.role === 'teacher') {
+        app.innerHTML = renderTeacherLayout();
+        if (AppState.reviewingStudentId && AppState.reviewingSession) {
+          setTimeout(() => TeacherPenManager.initOverlayCanvas(), 50);
+        }
+      }
+      lucide.createIcons();
+    }
+
+    /**
+     * -------------------------------------------------------------------------
+     * A. 로그인 화면 (학생 학번/비번 & 교사 비번)
+     * -------------------------------------------------------------------------
+     */
+    function renderLoginScreen() {
+      return `
+        <div class="flex-1 flex flex-col items-center justify-center py-4">
+          <!-- 상단 타이틀 배너 -->
+          <div class="text-center mb-6 animate-float">
+            <div class="inline-flex items-center gap-2 bg-butter border-2 border-amber-300 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold text-amber-800 shadow-cute-sm mb-3">
+              <span>✏️ 매일 5~10분, 내 손글씨가 예뻐지는 마법!</span>
+            </div>
+            <h1 class="font-cute text-4xl sm:text-6xl font-bold text-cocoa tracking-tight drop-shadow-sm">
+              영어 필체 교정 연습
+            </h1>
+            <p class="font-hand text-2xl sm:text-4xl font-bold text-coral tracking-wider mt-1">
+              "ENGLISH HANDWRITING"
+            </p>
+          </div>
+
+          <!-- 로그인 카드 2열 (학생용 / 교사용) -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
+            <!-- 학생 로그인 카드 -->
+            <div class="bg-white/95 backdrop-blur rounded-3xl border-4 border-mintDark p-6 sm:p-7 shadow-cute flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="w-12 h-12 rounded-2xl bg-mint flex items-center justify-center text-2xl shadow-cute-sm">🎒</div>
+                  <div>
+                    <h2 class="font-cute text-3xl font-bold text-cocoa">학생 입장하기</h2>
+                    <p class="text-xs text-stone-500">학번과 비밀번호를 입력하면 나의 포트폴리오가 열려요!</p>
+                  </div>
+                </div>
+
+                <form onsubmit="handleStudentLogin(event)" class="space-y-3.5">
+                  <div>
+                    <label class="block text-sm font-bold mb-1 text-cocoa">학번 (5자리 숫자, 예: 10101)</label>
+                    <input id="login-student-id" type="text" inputmode="numeric" required placeholder="1학년: 10101 / 2학년: 20101 / 3학년: 30101"
+                      class="w-full px-4 py-3 rounded-2xl border-2 border-mintDark/50 focus:border-mintDark focus:outline-none bg-mint/20 text-base font-bold" />
+                  </div>
+                  <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label class="block text-sm font-bold mb-1 text-cocoa">이름 (첫 접속 시 등록)</label>
+                      <input id="login-student-name" type="text" placeholder="예: 김민지"
+                        class="w-full px-4 py-3 rounded-2xl border-2 border-mintDark/50 focus:border-mintDark focus:outline-none bg-mint/20 text-base" />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-bold mb-1 text-cocoa">비밀번호</label>
+                      <input id="login-student-pw" type="password" required placeholder="비밀번호 입력"
+                        class="w-full px-4 py-3 rounded-2xl border-2 border-mintDark/50 focus:border-mintDark focus:outline-none bg-mint/20 text-base" />
+                    </div>
+                  </div>
+                  <button type="submit" class="btn-cute w-full py-3.5 rounded-2xl bg-mintDark hover:bg-cyan-500 text-white font-cute text-2xl font-bold shadow-cute flex items-center justify-center gap-2 mt-2">
+                    <i data-lucide="pen-tool" class="w-5 h-5"></i>
+                    <span>연습장 펼치기</span>
+                  </button>
+                </form>
+              </div>
+
+              <!-- 빠른 체험 버튼 -->
+              <div class="mt-5 pt-4 border-t-2 border-dashed border-mint">
+                <p class="text-xs font-bold text-stone-400 mb-2">✨ 바로 둘러보기 (원클릭 체험)</p>
+                <div class="grid grid-cols-3 gap-2">
+                  <button onclick="quickStudentDemo('10101', '김민지', '111')" class="btn-cute py-2 px-2 rounded-xl bg-mint/60 hover:bg-mint text-xs font-bold text-cyan-900 border border-mintDark/40">
+                    🌱 중1 체험
+                  </button>
+                  <button onclick="quickStudentDemo('20101', '이서준', '222')" class="btn-cute py-2 px-2 rounded-xl bg-butter hover:bg-amber-200 text-xs font-bold text-amber-900 border border-amber-300">
+                    🌿 중2 체험
+                  </button>
+                  <button onclick="quickStudentDemo('30101', '박하은', '333')" class="btn-cute py-2 px-2 rounded-xl bg-lavender hover:bg-purple-200 text-xs font-bold text-purple-900 border border-lavenderDark/40">
+                    🌳 중3 체험
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 교사 로그인 카드 -->
+            <div class="bg-white/95 backdrop-blur rounded-3xl border-4 border-coral p-6 sm:p-7 shadow-cute flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="w-12 h-12 rounded-2xl bg-peach flex items-center justify-center text-2xl shadow-cute-sm">👩‍🏫</div>
+                  <div>
+                    <h2 class="font-cute text-3xl font-bold text-cocoa">선생님 대시보드</h2>
+                    <p class="text-xs text-stone-500">학생별 10차시 제출 현황 확인 및 펜/텍스트 피드백</p>
+                  </div>
+                </div>
+
+                <form onsubmit="handleTeacherLogin(event)" class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-bold mb-1 text-cocoa">교사 전용 비밀번호</label>
+                    <input id="login-teacher-pw" type="password" required placeholder="교사 비밀번호를 입력하세요"
+                      class="w-full px-4 py-3 rounded-2xl border-2 border-coral/50 focus:border-coral focus:outline-none bg-peach/30 text-base font-bold" />
+                    <p class="text-xs text-stone-500 mt-1.5 flex items-center gap-1">
+                      <i data-lucide="info" class="w-3.5 h-3.5 text-coral"></i>
+                      <span>초기 체험 비밀번호: <strong class="text-coral">1234</strong> (대시보드에서 변경 가능)</span>
+                    </p>
+                  </div>
+
+                  <button type="submit" class="btn-cute w-full py-3.5 rounded-2xl bg-coral hover:bg-red-400 text-white font-cute text-2xl font-bold shadow-cute flex items-center justify-center gap-2">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span>교사 대시보드 입장</span>
+                  </button>
+                </form>
+              </div>
+
+              <div class="mt-5 pt-4 border-t-2 border-dashed border-peach flex items-center justify-between">
+                <div class="text-xs text-stone-500">
+                  <span class="font-bold text-cocoa">저장 모드:</span>
+                  ${window.CLOUD_ENABLED
+                    ? '<span class="text-emerald-600 font-bold">☁️ 실시간 클라우드 연동 중</span>'
+                    : '<span class="text-amber-700 font-bold">💾 브라우저 로컬 저장소 (체험용)</span>'}
+                </div>
+                <button onclick="quickTeacherDemo()" class="btn-cute py-2 px-3 rounded-xl bg-peach hover:bg-rose-200 text-xs font-bold text-rose-900 border border-coral/40">
+                  ⚡ 교사 바로 체험
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * -------------------------------------------------------------------------
+     * B. 학생 메인 레이아웃 & 화면들 (주차 학습 / 4선지 연습장 / 포트폴리오)
+     * -------------------------------------------------------------------------
+     */
+    function renderStudentLayout() {
+      const student = AppState.data.students[AppState.currentStudentId];
+      const subs = student.submissions || {};
+
+      // 알림 추출 (피드백 도착 또는 재제출 요청 중 아직 확인 안 한 것 + 재제출 대기 건)
+      const alerts = Object.values(subs).filter(s => s.status === 'resubmit' || (s.status === 'approved' && s.notified));
+      const completedCount = Object.values(subs).filter(s => s.status === 'approved').length;
+
+      return `
+        <!-- 상단 귀여운 헤더 네비게이션 -->
+        <header class="bg-white/95 rounded-3xl border-3 border-amber-200 px-4 sm:px-6 py-3.5 shadow-cute mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-2xl bg-butter border-2 border-amber-300 flex items-center justify-center text-2xl shadow-cute-sm">
+              🐣
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="font-cute text-2xl sm:text-3xl font-bold text-cocoa leading-none">ENGLISH HANDWRITING</h1>
+                <span class="px-2.5 py-0.5 rounded-full bg-mint text-cyan-900 text-xs font-bold border border-mintDark/40">
+                  중${student.grade} · ${student.id} ${student.name}
+                </span>
+              </div>
+              <p class="text-xs text-stone-500 mt-1">나의 필체 성장 진도: <strong class="text-coral">${completedCount} / 10차시</strong> 완료!</p>
+            </div>
+          </div>
+
+          <!-- 상단 탭 메뉴 & 로그아웃 -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="switchStudentTab('sessions')" class="btn-cute px-3.5 py-2 rounded-2xl text-sm font-bold flex items-center gap-1.5 border-2 ${AppState.studentTab === 'sessions' ? 'bg-butter border-amber-400 text-cocoa shadow-cute-sm' : 'bg-white border-stone-200 text-stone-600'}">
+              <i data-lucide="calendar-heart" class="w-4 h-4 text-coral"></i>
+              <span>10차시 학습</span>
+            </button>
+            <button onclick="switchStudentTab('portfolio')" class="btn-cute px-3.5 py-2 rounded-2xl text-sm font-bold flex items-center gap-1.5 border-2 ${AppState.studentTab === 'portfolio' ? 'bg-lavender border-lavenderDark text-purple-950 shadow-cute-sm' : 'bg-white border-stone-200 text-stone-600'}">
+              <i data-lucide="book-open-check" class="w-4 h-4 text-lavenderDark"></i>
+              <span>나의 포트폴리오</span>
+            </button>
+            <button onclick="logout()" class="btn-cute px-3 py-2 rounded-2xl text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-600 border border-stone-300 flex items-center gap-1">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+              <span>나가기</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- 선생님 피드백 / 재제출 알림 배너 -->
+        ${alerts.length > 0 ? `
+          <div class="mb-5 space-y-2">
+            ${alerts.map(a => `
+              <div class="rounded-2xl border-2 ${a.status === 'resubmit' ? 'bg-peach border-coral' : 'bg-mint border-mintDark'} px-4 py-3 shadow-cute-sm flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5">
+                  <span class="text-xl">${a.status === 'resubmit' ? '💌' : '🎉'}</span>
+                  <div>
+                    <p class="text-sm font-bold text-cocoa">
+                      ${a.status === 'resubmit'
+                        ? `[${a.grade}학년 ${a.session}차시] 선생님이 다시 써보기를 요청했어요! 피드백을 확인하고 재제출해 주세요.`
+                        : `[${a.grade}학년 ${a.session}차시] 선생님 피드백이 도착했어요!`}
+                    </p>
+                    ${a.teacherComment ? `<p class="text-xs text-stone-700 mt-0.5">"${a.teacherComment}"</p>` : ''}
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="openSessionPractice(${a.grade}, ${a.session})" class="btn-cute px-3.5 py-1.5 rounded-xl bg-white text-xs font-bold text-cocoa border border-stone-300 shadow-cute-sm">
+                    ${a.status === 'resubmit' ? '✏️ 지금 다시 쓰기' : '👀 피드백 보기'}
+                  </button>
+                  ${a.status === 'approved' ? `
+                    <button onclick="dismissNotification(${a.session})" class="text-xs text-stone-500 underline px-1">확인</button>
+                  ` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- 탭별 본문 영역 -->
+        <main class="flex-1">
+          ${AppState.studentTab === 'sessions' ? renderStudentSessionsView(student) : ''}
+          ${AppState.studentTab === 'practice' ? renderStudentPracticeView(student) : ''}
+          ${AppState.studentTab === 'portfolio' ? renderStudentPortfolioView(student) : ''}
+        </main>
+      `;
+    }
+
+    // 학생 뷰 1: 주차(1~10차시) 선택 그리드
+    function renderStudentSessionsView(student) {
+      const lessons = AppState.data.curriculum[AppState.activeGrade] || [];
+      const subs = student.submissions || {};
+
+      return `
+        <div class="bg-white/95 rounded-3xl border-3 border-mintDark/50 p-5 sm:p-6 shadow-cute">
+          <!-- 학년 선택 탭 (기본은 학생 본인의 학년이지만 다른 학년 예문도 연습 가능) -->
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b-2 border-dashed border-mint">
+            <div>
+              <h2 class="font-cute text-3xl font-bold text-cocoa flex items-center gap-2">
+                <span>🗓️ 주차별 필체 교정 로드맵 (총 10차시)</span>
+              </h2>
+              <p class="text-xs sm:text-sm text-stone-500 mt-0.5">차시를 누르면 원어민 발음 듣기와 4선지 따라쓰기 연습장이 열립니다!</p>
+            </div>
+            <div class="flex items-center gap-1.5 bg-cream p-1.5 rounded-2xl border-2 border-amber-200">
+              ${[1, 2, 3].map(g => `
+                <button onclick="changeStudentGradeView(${g})" class="px-3.5 py-1.5 rounded-xl text-sm font-bold transition ${AppState.activeGrade === g ? 'bg-coral text-white shadow-cute-sm' : 'text-stone-600 hover:bg-butter'}">
+                  중${g} 과정
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- 10차시 카드 그리드 -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            ${lessons.map(lesson => {
+              const sub = subs[lesson.session];
+              let statusBadge = `<span class="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-500 text-xs font-bold">미제출</span>`;
+              let cardBorder = 'border-stone-200 hover:border-mintDark';
+              let cardBg = 'bg-cream/60';
+
+              if (sub) {
+                if (sub.status === 'submitted') {
+                  statusBadge = `<span class="px-2.5 py-0.5 rounded-full bg-butter text-amber-800 text-xs font-bold border border-amber-300">⏳ 제출완료</span>`;
+                  cardBorder = 'border-amber-300';
+                  cardBg = 'bg-butter/30';
+                } else if (sub.status === 'resubmit') {
+                  statusBadge = `<span class="px-2.5 py-0.5 rounded-full bg-coral text-white text-xs font-bold animate-pulse">🚨 재제출 필요</span>`;
+                  cardBorder = 'border-coral border-3';
+                  cardBg = 'bg-peach/40';
+                } else if (sub.status === 'approved') {
+                  statusBadge = `<span class="px-2.5 py-0.5 rounded-full bg-mint text-cyan-900 text-xs font-bold border border-mintDark">🌟 참 잘했어요!</span>`;
+                  cardBorder = 'border-mintDark';
+                  cardBg = 'bg-mint/30';
+                }
+              }
+
+              return `
+                <div onclick="openSessionPractice(${AppState.activeGrade}, ${lesson.session})"
+                  class="btn-cute cursor-pointer rounded-2xl border-2 ${cardBorder} ${cardBg} p-4 flex flex-col justify-between shadow-cute-sm hover:shadow-cute transition">
+                  <div>
+                    <div class="flex items-center justify-between gap-1 mb-2">
+                      <span class="font-cute text-xl font-bold text-coral">${lesson.session}차시</span>
+                      ${statusBadge}
+                    </div>
+                    <h3 class="font-bold text-sm text-cocoa line-clamp-1 mb-1.5">${lesson.title}</h3>
+                    <p class="font-hand text-base text-stone-700 bg-white/80 rounded-xl px-2.5 py-1.5 border border-stone-200/80 line-clamp-2">
+                      ${lesson.sentence}
+                    </p>
+                  </div>
+                  <div class="mt-3 pt-2 border-t border-stone-200/60 flex items-center justify-between text-xs text-stone-500">
+                    <span class="truncate">${lesson.meaning}</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-coral shrink-0"></i>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // 학생 뷰 2: 4선지 필체 연습장 (Step 1 따라쓰기 -> Step 2 혼자 쓰기 + TTS + S펜 도구)
+    function renderStudentPracticeView(student) {
+      const lesson = AppState.data.curriculum[AppState.activeGrade].find(l => l.session === AppState.activeSession);
+      const existingSub = (student.submissions || {})[AppState.activeSession];
+
+      return `
+        <div class="bg-white/95 rounded-3xl border-3 border-coral/60 p-4 sm:p-6 shadow-cute">
+          <!-- 상단 뒤로가기 및 차시 제목 -->
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b-2 border-dashed border-peach">
+            <div class="flex items-center gap-2.5">
+              <button onclick="switchStudentTab('sessions')" class="btn-cute p-2 rounded-xl bg-butter border border-amber-300 text-cocoa">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+              </button>
+              <div>
+                <span class="text-xs font-bold text-coral">중${AppState.activeGrade} · ${lesson.session}차시 집중 교정</span>
+                <h2 class="font-cute text-2xl sm:text-3xl font-bold text-cocoa">${lesson.title}</h2>
+              </div>
+            </div>
+
+            <!-- 2단계 학습 스텝 전환 버튼 -->
+            <div class="flex items-center gap-2 bg-cream p-1.5 rounded-2xl border-2 border-mintDark/50">
+              <button onclick="setPracticeStep(1)" class="btn-cute px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 ${AppState.practiceStep === 1 ? 'bg-mintDark text-white shadow-cute-sm' : 'text-stone-600'}">
+                <span>1단계: 연하게 따라쓰기</span>
+              </button>
+              <button onclick="setPracticeStep(2)" class="btn-cute px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 ${AppState.practiceStep === 2 ? 'bg-coral text-white shadow-cute-sm' : 'text-stone-600'}">
+                <span>2단계: 혼자 쓰기</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 교사 피드백이 있는 경우 상단에 표시 -->
+          ${existingSub && (existingSub.teacherComment || existingSub.teacherOverlayImg) ? `
+            <div class="mb-4 p-4 rounded-2xl bg-peach/40 border-2 border-coral">
+              <div class="flex items-center gap-2 font-bold text-sm text-rose-900 mb-1">
+                <span>👩‍🏫 선생님의 피드백 (${existingSub.status === 'resubmit' ? '다시 써서 제출해 주세요!' : '확인 완료'})</span>
+              </div>
+              <p class="text-sm text-cocoa bg-white/90 p-3 rounded-xl border border-coral/30">
+                ${existingSub.teacherComment || '선생님 첨삭 이미지를 확인해 보세요!'}
+              </p>
+              ${existingSub.teacherOverlayImg ? `
+                <div class="mt-2">
+                  <p class="text-xs font-bold text-rose-800 mb-1">🖍️ 선생님의 빨간펜 첨삭 노트:</p>
+                  <div class="relative max-w-md rounded-xl overflow-hidden border-2 border-coral bg-white">
+                    <img src="${existingSub.step2Img || existingSub.step1Img}" class="w-full block" alt="학생 제출본" />
+                    <img src="${existingSub.teacherOverlayImg}" class="absolute inset-0 w-full h-full object-fill pointer-events-none" alt="교사 첨삭" />
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+
+          <!-- 오늘의 단어/예문 카드 + 원어민 TTS 듣기 -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+            <div class="lg:col-span-2 rounded-2xl bg-butter/60 border-2 border-amber-300 p-4 flex flex-col justify-between">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <span class="inline-block px-2 py-0.5 rounded-lg bg-white text-xs font-bold text-amber-800 border border-amber-200 mb-1">오늘의 연습 문장</span>
+                  <p class="font-hand text-2xl sm:text-3xl font-bold text-cocoa tracking-wide">${lesson.sentence}</p>
+                  <p class="text-sm text-stone-600 mt-1">뜻: <strong class="text-cocoa">${lesson.meaning}</strong></p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="speakEnglish('${lesson.words.replace(/'/g, "\\'")} . ${lesson.sentence.replace(/'/g, "\\'")}', 0.95)"
+                    class="btn-cute px-3 py-2 rounded-xl bg-mintDark text-white text-xs font-bold flex items-center gap-1 shadow-cute-sm">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                    <span>전체 듣기</span>
+                  </button>
+                  <button onclick="speakEnglish('${lesson.sentence.replace(/'/g, "\\'")}', 0.7)"
+                    class="btn-cute px-3 py-2 rounded-xl bg-white text-cyan-900 border border-mintDark text-xs font-bold flex items-center gap-1 shadow-cute-sm">
+                    <span>🐢 느리게</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 필체 교정 꿀팁 박스 -->
+            <div class="rounded-2xl bg-lavender/60 border-2 border-lavenderDark/40 p-4 flex flex-col justify-center">
+              <div class="flex items-center gap-1.5 text-purple-900 font-bold text-sm mb-1">
+                <span>💡 선생님의 필체 꿀팁!</span>
+              </div>
+              <p class="text-xs sm:text-sm text-cocoa leading-relaxed">${lesson.tip}</p>
+            </div>
+          </div>
+
+          <!-- S펜 / 터치펜 도구 툴바 -->
+          <div class="flex flex-wrap items-center justify-between gap-2 bg-cream px-3.5 py-2.5 rounded-2xl border-2 border-stone-200 mb-3">
+            <!-- 펜 색상 선택 -->
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-stone-500">펜 색상:</span>
+              ${[
+                { name: '연필흑색', hex: '#2D3748' },
+                { name: '잉크네이비', hex: '#1E40AF' },
+                { name: '포도보라', hex: '#7E22CE' },
+                { name: '코랄핑크', hex: '#E11D48' }
+              ].map(c => `
+                <button onclick="setPenColor('${c.hex}')" title="${c.name}"
+                  class="w-7 h-7 rounded-full border-2 transition transform ${!CanvasManager.isEraser && CanvasManager.currentColor === c.hex ? 'scale-115 border-amber-400 ring-2 ring-amber-300' : 'border-white shadow-sm'}"
+                  style="background-color: ${c.hex};"></button>
+              `).join('')}
+
+              <div class="h-5 w-px bg-stone-300 mx-1"></div>
+
+              <!-- 펜 굵기 -->
+              <span class="text-xs font-bold text-stone-500 hidden sm:inline">굵기:</span>
+              ${[
+                { label: '얇게', size: 2.8 },
+                { label: '보통', size: 4.2 },
+                { label: '굵게', size: 6.5 }
+              ].map(w => `
+                <button onclick="setPenWidth(${w.size})"
+                  class="px-2.5 py-1 rounded-lg text-xs font-bold border ${!CanvasManager.isEraser && CanvasManager.currentWidth === w.size ? 'bg-butter border-amber-400 text-cocoa' : 'bg-white border-stone-200 text-stone-500'}">
+                  ${w.label}
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- 지우개 / 실행취소 / 전체지우기 -->
+            <div class="flex items-center gap-1.5">
+              <button onclick="toggleEraser()" class="btn-cute px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1 ${CanvasManager.isEraser ? 'bg-peach border-coral text-rose-900' : 'bg-white border-stone-200 text-stone-600'}">
+                <i data-lucide="eraser" class="w-3.5 h-3.5"></i>
+                <span>지우개</span>
+              </button>
+              <button onclick="CanvasManager.undo()" class="btn-cute px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-stone-200 text-stone-600 flex items-center gap-1">
+                <i data-lucide="undo-2" class="w-3.5 h-3.5"></i>
+                <span>되돌리기</span>
+              </button>
+              <button onclick="CanvasManager.clearCurrentStep()" class="btn-cute px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-stone-200 text-rose-600 flex items-center gap-1">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>싹 지우기</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4선지 필체 교정 캔버스 영역 -->
+          <div class="relative rounded-2xl border-4 border-mintDark overflow-hidden bg-white shadow-inner">
+            <canvas id="practice-canvas" class="handwriting-canvas w-full block"></canvas>
+          </div>
+
+          <!-- 하단 안내 및 다음 단계 / 최종 제출 버튼 -->
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xs text-stone-500">
+              📱 <strong>갤럭시탭 팁:</strong> S펜으로 1단계(따라쓰기)와 2단계(혼자 쓰기)를 모두 작성한 뒤 제출해 주세요!
+            </p>
+            <div class="flex items-center gap-2.5 ml-auto">
+              ${AppState.practiceStep === 1 ? `
+                <button onclick="setPracticeStep(2)" class="btn-cute px-5 py-3 rounded-2xl bg-mintDark hover:bg-cyan-500 text-white font-cute text-xl font-bold shadow-cute flex items-center gap-2">
+                  <span>2단계: 혼자 쓰기로 넘어가기</span>
+                  <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                </button>
+              ` : `
+                <button onclick="submitHandwritingSession()" class="btn-cute px-6 py-3 rounded-2xl bg-coral hover:bg-red-400 text-white font-cute text-2xl font-bold shadow-cute flex items-center gap-2">
+                  <i data-lucide="send" class="w-5 h-5"></i>
+                  <span>${existingSub && existingSub.status === 'resubmit' ? '교정 완료! 재제출하기' : '선생님께 제출하기'}</span>
+                </button>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 학생 뷰 3: 나의 필체 성장 포트폴리오
+    function renderStudentPortfolioView(student) {
+      const subs = Object.values(student.submissions || {}).sort((a, b) => a.session - b.session);
+
+      return `
+        <div class="bg-white/95 rounded-3xl border-3 border-lavenderDark/50 p-5 sm:p-6 shadow-cute">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b-2 border-dashed border-lavender">
+            <div>
+              <h2 class="font-cute text-3xl font-bold text-cocoa">📚 ${student.name} 학생의 필체 성장 포트폴리오</h2>
+              <p class="text-xs sm:text-sm text-stone-500">1차시부터 10차시까지 내가 쓴 영어 글씨와 선생님의 칭찬 기록이 차곡차곡 모여요!</p>
+            </div>
+            <div class="px-4 py-2 rounded-2xl bg-lavender/60 border border-lavenderDark/40 text-sm font-bold text-purple-950">
+              누적 제출: ${subs.length}개 / 10차시
+            </div>
+          </div>
+
+          ${subs.length === 0 ? `
+            <div class="text-center py-12 bg-cream rounded-2xl border-2 border-dashed border-stone-300">
+              <p class="text-4xl mb-2">✏️</p>
+              <p class="font-cute text-2xl text-cocoa font-bold">아직 제출한 필체 연습이 없어요!</p>
+              <p class="text-sm text-stone-500 mt-1 mb-4">1차시 연습장부터 차근차근 채워볼까요?</p>
+              <button onclick="openSessionPractice(${student.grade}, 1)" class="btn-cute px-5 py-2.5 rounded-2xl bg-coral text-white font-bold text-sm shadow-cute-sm">
+                1차시 시작하러 가기
+              </button>
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              ${subs.map(sub => {
+                const lesson = (AppState.data.curriculum[sub.grade] || []).find(l => l.session === sub.session) || { title: `${sub.session}차시`, sentence: '' };
+                return `
+                  <div class="rounded-2xl border-2 border-stone-200 bg-cream/70 p-4 flex flex-col justify-between shadow-cute-sm">
+                    <div>
+                      <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="font-cute text-2xl font-bold text-coral">중${sub.grade} · ${sub.session}차시</span>
+                        <span class="text-xs text-stone-400">${sub.submittedAt}</span>
+                      </div>
+                      <p class="text-sm font-bold text-cocoa mb-2">${lesson.title}</p>
+
+                      <!-- Step 1 & Step 2 비교 이미지 -->
+                      <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div class="bg-white rounded-xl border border-stone-200 p-1.5">
+                          <span class="block text-[11px] font-bold text-cyan-800 mb-1">1단계: 따라쓰기</span>
+                          ${sub.step1Img
+                            ? `<img src="${sub.step1Img}" class="w-full rounded-lg border border-stone-100" alt="따라쓰기" />`
+                            : `<div class="h-24 flex items-center justify-center text-xs text-stone-400 bg-stone-50 rounded-lg">샘플 데이터</div>`}
+                        </div>
+                        <div class="bg-white rounded-xl border border-stone-200 p-1.5 relative">
+                          <span class="block text-[11px] font-bold text-coral mb-1">2단계: 혼자 쓰기</span>
+                          ${sub.step2Img
+                            ? `<div class="relative">
+                                 <img src="${sub.step2Img}" class="w-full rounded-lg border border-stone-100" alt="혼자쓰기" />
+                                 ${sub.teacherOverlayImg ? `<img src="${sub.teacherOverlayImg}" class="absolute inset-0 w-full h-full object-fill" alt="교사첨삭" />` : ''}
+                               </div>`
+                            : `<div class="h-24 flex items-center justify-center text-xs text-stone-400 bg-stone-50 rounded-lg">샘플 데이터</div>`}
+                        </div>
+                      </div>
+
+                      <!-- 교사 피드백 박스 -->
+                      ${sub.teacherComment ? `
+                        <div class="p-3 rounded-xl ${sub.status === 'resubmit' ? 'bg-peach border border-coral' : 'bg-mint/60 border border-mintDark/50'} text-xs text-cocoa">
+                          <strong class="block mb-0.5">${sub.status === 'resubmit' ? '🚨 선생님 재제출 요청:' : '💌 선생님 피드백:'}</strong>
+                          <span>${sub.teacherComment}</span>
+                        </div>
+                      ` : `
+                        <div class="p-2.5 rounded-xl bg-butter/60 text-xs text-amber-900">
+                          ⏳ 선생님이 확인 중이에요!
+                        </div>
+                      `}
+                    </div>
+
+                    <div class="mt-3 pt-2 border-t border-stone-200 flex justify-end">
+                      <button onclick="openSessionPractice(${sub.grade}, ${sub.session})" class="btn-cute px-3 py-1.5 rounded-xl bg-white border border-stone-300 text-xs font-bold text-cocoa">
+                        ${sub.status === 'resubmit' ? '✏️ 다시 써서 재제출하기' : '연습장 열기'}
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    /**
+     * -------------------------------------------------------------------------
+     * C. 교사 대시보드 (학생 포트폴리오 열람 / 빨간펜 직접 첨삭 / 문장 커리큘럼 관리)
+     * -------------------------------------------------------------------------
+     */
+    function renderTeacherLayout() {
+      const studentsList = Object.values(AppState.data.students || {});
+
+      // 필터 적용
+      const filteredStudents = studentsList.filter(st => {
+        if (AppState.teacherFilterGrade !== 'all' && String(st.grade) !== String(AppState.teacherFilterGrade)) return false;
+        const subs = Object.values(st.submissions || {});
+        if (AppState.teacherFilterStatus === 'submitted') return subs.some(s => s.status === 'submitted');
+        if (AppState.teacherFilterStatus === 'resubmit') return subs.some(s => s.status === 'resubmit');
+        if (AppState.teacherFilterStatus === 'approved') return subs.some(s => s.status === 'approved');
+        return true;
+      });
+
+      return `
+        <!-- 교사 상단 헤더 -->
+        <header class="bg-white/95 rounded-3xl border-3 border-coral/60 px-4 sm:px-6 py-3.5 shadow-cute mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-2xl bg-peach border-2 border-coral flex items-center justify-center text-2xl shadow-cute-sm">
+              👩‍🏫
+            </div>
+            <div>
+              <h1 class="font-cute text-2xl sm:text-3xl font-bold text-cocoa leading-none">교사 관리 대시보드</h1>
+              <p class="text-xs text-stone-500 mt-1">등록 학생 <strong class="text-coral">${studentsList.length}명</strong> · 제출된 필체 위에 직접 펜과 글로 피드백을 남겨주세요!</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="switchTeacherTab('students')" class="btn-cute px-3.5 py-2 rounded-2xl text-sm font-bold border-2 ${AppState.teacherTab === 'students' ? 'bg-peach border-coral text-rose-950 shadow-cute-sm' : 'bg-white border-stone-200 text-stone-600'}">
+              📋 학생 포트폴리오 · 첨삭
+            </button>
+            <button onclick="switchTeacherTab('curriculum')" class="btn-cute px-3.5 py-2 rounded-2xl text-sm font-bold border-2 ${AppState.teacherTab === 'curriculum' ? 'bg-butter border-amber-400 text-cocoa shadow-cute-sm' : 'bg-white border-stone-200 text-stone-600'}">
+              ✏️ 차시 문장 · 설정 관리
+            </button>
+            <button onclick="logout()" class="btn-cute px-3 py-2 rounded-2xl text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-600 border border-stone-300">
+              나가기
+            </button>
+          </div>
+        </header>
+
+        ${AppState.teacherTab === 'students' ? renderTeacherStudentsView(filteredStudents) : renderTeacherCurriculumView()}
+
+        <!-- 교사 직접 펜/텍스트 피드백 모달 -->
+        ${AppState.reviewingStudentId && AppState.reviewingSession ? renderTeacherFeedbackModal() : ''}
+      `;
+    }
+
+    function renderTeacherStudentsView(filteredStudents) {
+      return `
+        <div class="bg-white/95 rounded-3xl border-3 border-stone-200 p-5 sm:p-6 shadow-cute">
+          <!-- 학년 및 상태 필터 바 -->
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b-2 border-dashed border-stone-200">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-xs font-bold text-stone-500 mr-1">학년 필터:</span>
+              ${[
+                { id: 'all', label: '전체 학년' },
+                { id: '1', label: '중1' },
+                { id: '2', label: '중2' },
+                { id: '3', label: '중3' }
+              ].map(f => `
+                <button onclick="setTeacherGradeFilter('${f.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold border ${AppState.teacherFilterGrade === f.id ? 'bg-coral text-white border-coral' : 'bg-cream text-stone-600 border-stone-200'}">
+                  ${f.label}
+                </button>
+              `).join('')}
+            </div>
+
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-xs font-bold text-stone-500 mr-1">상태:</span>
+              ${[
+                { id: 'all', label: '전체 보기' },
+                { id: 'submitted', label: '⏳ 미확인 제출물' },
+                { id: 'resubmit', label: '🚨 재제출 대기' },
+                { id: 'approved', label: '🌟 피드백 완료' }
+              ].map(st => `
+                <button onclick="setTeacherStatusFilter('${st.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold border ${AppState.teacherFilterStatus === st.id ? 'bg-mintDark text-white border-mintDark' : 'bg-cream text-stone-600 border-stone-200'}">
+                  ${st.label}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          ${filteredStudents.length === 0 ? `
+            <div class="text-center py-12 bg-cream rounded-2xl border-2 border-dashed border-stone-300">
+              <p class="font-cute text-2xl text-cocoa font-bold">조건에 해당하는 학생 제출 기록이 없습니다.</p>
+              <p class="text-xs text-stone-500 mt-1">학생 계정으로 로그인해 필체를 제출하면 이곳에 실시간으로 표시됩니다!</p>
+            </div>
+          ` : `
+            <div class="space-y-4">
+              ${filteredStudents.map(st => {
+                const subs = st.submissions || {};
+                const approvedCnt = Object.values(subs).filter(s => s.status === 'approved').length;
+                return `
+                  <div class="rounded-2xl border-2 border-stone-200 bg-cream/60 p-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <div class="flex items-center gap-2.5">
+                        <span class="px-3 py-1 rounded-xl bg-mint text-cyan-950 font-bold text-sm border border-mintDark/40">
+                          중${st.grade} · ${st.id}
+                        </span>
+                        <h3 class="font-cute text-2xl font-bold text-cocoa">${st.name}</h3>
+                        <span class="text-xs text-stone-500">(비번: ${st.password})</span>
+                      </div>
+                      <div class="text-xs font-bold text-coral bg-white px-3 py-1 rounded-full border border-coral/30">
+                        완료 진도: ${approvedCnt} / 10차시
+                      </div>
+                    </div>
+
+                    <!-- 1~10차시 미니 상태 버튼 그리드 (클릭 시 첨삭 모달 오픈) -->
+                    <div class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2">
+                      ${Array.from({ length: 10 }, (_, i) => i + 1).map(sec => {
+                        const sub = subs[sec];
+                        if (!sub) {
+                          return `
+                            <div class="rounded-xl border border-stone-200 bg-white/60 p-2 text-center opacity-60">
+                              <div class="text-xs font-bold text-stone-400">${sec}차시</div>
+                              <div class="text-[11px] text-stone-400 mt-0.5">미제출</div>
+                            </div>
+                          `;
+                        }
+                        let btnStyle = 'bg-butter border-amber-400 text-amber-950';
+                        let label = '⏳ 확인필요';
+                        if (sub.status === 'resubmit') {
+                          btnStyle = 'bg-peach border-coral text-rose-950';
+                          label = '🚨 재제출중';
+                        } else if (sub.status === 'approved') {
+                          btnStyle = 'bg-mint border-mintDark text-cyan-950';
+                          label = '🌟 완료';
+                        }
+                        return `
+                          <button onclick="openTeacherReview('${st.id}', ${sec})"
+                            class="btn-cute rounded-xl border-2 ${btnStyle} p-2 text-center shadow-cute-sm hover:scale-105 transition">
+                            <div class="text-xs font-bold">${sec}차시</div>
+                            <div class="text-[11px] font-bold mt-0.5">${label}</div>
+                          </button>
+                        `;
+                      }).join('')}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // 교사 직접 펜 + 텍스트 피드백 모달
+    function renderTeacherFeedbackModal() {
+      const student = AppState.data.students[AppState.reviewingStudentId];
+      const sub = student.submissions[AppState.reviewingSession];
+      const lesson = (AppState.data.curriculum[sub.grade] || []).find(l => l.session === sub.session) || { title: '', sentence: '' };
+
+      // 기존 첨삭 획 초기화
+      TeacherPenManager.strokes = [];
+
+      return `
+        <div class="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div class="bg-white rounded-3xl border-4 border-coral max-w-3xl w-full p-5 sm:p-6 shadow-2xl my-auto">
+            <div class="flex items-center justify-between gap-2 pb-3 mb-4 border-b-2 border-dashed border-peach">
+              <div>
+                <span class="text-xs font-bold text-coral">중${sub.grade} · ${student.id} ${student.name} 학생 (${sub.session}차시)</span>
+                <h3 class="font-cute text-2xl sm:text-3xl font-bold text-cocoa">${lesson.title}</h3>
+              </div>
+              <button onclick="closeTeacherReview()" class="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+              </button>
+            </div>
+
+            <!-- 학생 제출 필체 이미지 + 교사 빨간펜 드로잉 레이어 -->
+            <div class="mb-4">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <span class="text-xs font-bold text-cocoa">🖍️ 아래 학생 글씨(2단계 혼자 쓰기) 위에 마우스나 터치펜으로 직접 동그라미/교정선을 그릴 수 있어요!</span>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="TeacherPenManager.penColor='#E53935'" class="w-6 h-6 rounded-full bg-red-600 border-2 border-white shadow"></button>
+                  <button onclick="TeacherPenManager.penColor='#1E88E5'" class="w-6 h-6 rounded-full bg-blue-600 border-2 border-white shadow"></button>
+                  <button onclick="TeacherPenManager.undo()" class="px-2.5 py-1 rounded-lg bg-stone-100 text-xs font-bold">되돌리기</button>
+                  <button onclick="TeacherPenManager.clear()" class="px-2.5 py-1 rounded-lg bg-stone-100 text-xs font-bold text-rose-600">펜 지우기</button>
+                </div>
+              </div>
+
+              <div class="relative rounded-2xl border-2 border-stone-300 overflow-hidden bg-cream">
+                ${sub.step2Img || sub.step1Img ? `
+                  <img src="${sub.step2Img || sub.step1Img}" class="w-full block select-none pointer-events-none" alt="학생 제출 필체" />
+                ` : `
+                  <div class="h-48 flex flex-col items-center justify-center text-stone-500 text-sm p-4 text-center">
+                    <p class="font-bold">샘플 체험 데이터입니다.</p>
+                    <p class="text-xs mt-1">실제 학생이 제출하면 4선지 위 손글씨 이미지가 여기에 나타납니다!</p>
+                  </div>
+                `}
+                <canvas id="teacher-overlay-canvas" class="handwriting-canvas absolute inset-0 w-full h-full"></canvas>
+              </div>
+            </div>
+
+            <!-- 텍스트 피드백 입력 -->
+            <div class="mb-4">
+              <label class="block text-sm font-bold text-cocoa mb-1">💌 선생님 칭찬 및 교정 코멘트</label>
+              <textarea id="teacher-comment-input" rows="2" placeholder="예: 알파벳 소문자 높이가 아주 일정해졌어요! 'g'의 꼬리만 4번선까지 조금 더 내려서 다시 써볼까요?"
+                class="w-full px-3.5 py-2.5 rounded-2xl border-2 border-stone-200 focus:border-coral focus:outline-none text-sm">${sub.teacherComment || ''}</textarea>
+            </div>
+
+            <!-- 승인(완료) 또는 재제출 요청 버튼 -->
+            <div class="flex flex-wrap items-center justify-end gap-2.5">
+              <button onclick="saveTeacherFeedback('resubmit')" class="btn-cute px-4 py-2.5 rounded-2xl bg-peach hover:bg-rose-200 border-2 border-coral text-rose-950 font-bold text-sm flex items-center gap-1.5">
+                <span>🚨 다시 써볼까요? (재제출 요청)</span>
+              </button>
+              <button onclick="saveTeacherFeedback('approved')" class="btn-cute px-5 py-2.5 rounded-2xl bg-mintDark hover:bg-cyan-500 text-white font-bold text-sm shadow-cute-sm flex items-center gap-1.5">
+                <span>🌟 참 잘했어요! (피드백 완료)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 교사 뷰 2: 학년별 10차시 예문 커리큘럼 수정 및 백업 관리
+    function renderTeacherCurriculumView() {
+      const grade = AppState.editCurriculumGrade;
+      const lessons = AppState.data.curriculum[grade] || [];
+
+      return `
+        <div class="bg-white/95 rounded-3xl border-3 border-amber-200 p-5 sm:p-6 shadow-cute">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b-2 border-dashed border-amber-200">
+            <div>
+              <h2 class="font-cute text-3xl font-bold text-cocoa">✏️ 학년별 10차시 연습 문장 & 설정 관리</h2>
+              <p class="text-xs text-stone-500">우리 학교 진도에 맞게 각 차시의 단어, 예문, 뜻, 필체 팁을 자유롭게 수정할 수 있습니다.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              ${[1, 2, 3].map(g => `
+                <button onclick="AppState.editCurriculumGrade=${g}; renderApp();" class="px-3.5 py-1.5 rounded-xl text-xs font-bold border ${grade === g ? 'bg-coral text-white border-coral' : 'bg-cream text-stone-600 border-stone-200'}">
+                  중${g} 커리큘럼
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="space-y-3 max-h-[52vh] overflow-y-auto pr-1">
+            ${lessons.map((l, idx) => `
+              <div class="p-3.5 rounded-2xl bg-cream border border-stone-200 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center">
+                <div class="md:col-span-2 font-cute text-xl font-bold text-coral">${l.session}차시</div>
+                <div class="md:col-span-3">
+                  <label class="text-[11px] font-bold text-stone-400 block">주제</label>
+                  <input type="text" value="${l.title}" onchange="updateCurriculumField(${grade}, ${idx}, 'title', this.value)"
+                    class="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 text-xs font-bold bg-white" />
+                </div>
+                <div class="md:col-span-4">
+                  <label class="text-[11px] font-bold text-stone-400 block">예문 문장 (4선지 출력)</label>
+                  <input type="text" value="${l.sentence}" onchange="updateCurriculumField(${grade}, ${idx}, 'sentence', this.value)"
+                    class="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 text-xs font-hand font-bold bg-white" />
+                </div>
+                <div class="md:col-span-3">
+                  <label class="text-[11px] font-bold text-stone-400 block">한글 뜻</label>
+                  <input type="text" value="${l.meaning}" onchange="updateCurriculumField(${grade}, ${idx}, 'meaning', this.value)"
+                    class="w-full px-2.5 py-1.5 rounded-xl border border-stone-200 text-xs bg-white" />
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- 교사 비밀번호 변경 & 데이터 백업 -->
+          <div class="mt-5 pt-4 border-t-2 border-dashed border-stone-200 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-cocoa">교사 비밀번호 변경:</span>
+              <input id="new-teacher-pw" type="text" value="${AppState.data.teacherPassword}" class="px-3 py-1.5 rounded-xl border border-stone-300 text-xs font-bold w-28" />
+              <button onclick="changeTeacherPassword()" class="btn-cute px-3 py-1.5 rounded-xl bg-cocoa text-white text-xs font-bold">저장</button>
+            </div>
+            <button onclick="exportAllDataJSON()" class="btn-cute px-4 py-2 rounded-xl bg-mintDark text-white text-xs font-bold flex items-center gap-1.5">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>전체 포트폴리오 백업 파일(JSON) 다운로드</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * =========================================================================
+     * 8. 이벤트 핸들러 및 비즈니스 로직
+     * =========================================================================
+     */
+    function handleStudentLogin(e) {
+      e.preventDefault();
+      const id = document.getElementById('login-student-id').value.trim();
+      const nameInput = document.getElementById('login-student-name').value.trim();
+      const pw = document.getElementById('login-student-pw').value.trim();
+
+      if (!id || !pw) {
+        showToast("학번과 비밀번호를 모두 입력해 주세요!", "warning");
+        return;
+      }
+
+      const students = AppState.data.students;
+      if (students[id]) {
+        if (students[id].password !== pw) {
+          showToast("비밀번호가 일치하지 않습니다. 다시 확인해 주세요!", "error");
+          return;
+        }
+        if (nameInput) students[id].name = nameInput;
+      } else {
+        const grade = detectGradeFromId(id);
+        students[id] = {
+          id,
+          password: pw,
+          name: nameInput || `${id} 학생`,
+          grade,
+          submissions: {}
+        };
+        showToast(`🎉 환영해요 ${students[id].name}! 중${grade} 연습장이 생성되었어요.`, "success");
+      }
+
+      StorageService.saveAll(AppState.data);
+      AppState.role = 'student';
+      AppState.currentStudentId = id;
+      AppState.activeGrade = students[id].grade;
+      AppState.studentTab = 'sessions';
+      renderApp();
+    }
+
+    function quickStudentDemo(id, name, pw) {
+      if (!AppState.data.students[id]) {
+        AppState.data.students[id] = {
+          id,
+          password: pw,
+          name,
+          grade: detectGradeFromId(id),
+          submissions: {}
+        };
+        StorageService.saveAll(AppState.data);
+      }
+      AppState.role = 'student';
+      AppState.currentStudentId = id;
+      AppState.activeGrade = AppState.data.students[id].grade;
+      AppState.studentTab = 'sessions';
+      showToast(`🐣 ${name}(${id}) 학생으로 체험 입장했습니다!`, "success");
+      renderApp();
+    }
+
+    function handleTeacherLogin(e) {
+      e.preventDefault();
+      const pw = document.getElementById('login-teacher-pw').value.trim();
+      if (pw !== AppState.data.teacherPassword) {
+        showToast("교사 비밀번호가 올바르지 않습니다. (초기 비번: 1234)", "error");
+        return;
+      }
+      AppState.role = 'teacher';
+      AppState.teacherTab = 'students';
+      renderApp();
+    }
+
+    function quickTeacherDemo() {
+      AppState.role = 'teacher';
+      AppState.teacherTab = 'students';
+      showToast("👩‍🏫 교사 대시보드로 바로 입장했습니다!", "success");
+      renderApp();
+    }
+
+    function logout() {
+      AppState.role = null;
+      AppState.currentStudentId = null;
+      AppState.reviewingStudentId = null;
+      AppState.reviewingSession = null;
+      renderApp();
+    }
+
+    function switchStudentTab(tab) {
+      AppState.studentTab = tab;
+      renderApp();
+    }
+
+    function changeStudentGradeView(grade) {
+      AppState.activeGrade = grade;
+      renderApp();
+    }
+
+    function openSessionPractice(grade, session) {
+      AppState.activeGrade = grade;
+      AppState.activeSession = session;
+      AppState.practiceStep = 1;
+      AppState.studentTab = 'practice';
+      CanvasManager.resetSessionStrokes();
+      renderApp();
+    }
+
+    function setPracticeStep(step) {
+      if (step === 2 && CanvasManager.step1Strokes.length === 0) {
+        showToast("팁: 1단계 따라쓰기를 먼저 연습하면 2단계가 훨씬 쉬워져요! ✏️", "info");
+      }
+      AppState.practiceStep = step;
+      renderApp();
+    }
+
+    function setPenColor(hex) {
+      CanvasManager.isEraser = false;
+      CanvasManager.currentColor = hex;
+      renderApp();
+    }
+
+    function setPenWidth(size) {
+      CanvasManager.isEraser = false;
+      CanvasManager.currentWidth = size;
+      renderApp();
+    }
+
+    function toggleEraser() {
+      CanvasManager.isEraser = !CanvasManager.isEraser;
+      renderApp();
+    }
+
+    function submitHandwritingSession() {
+      if (CanvasManager.step1Strokes.length === 0 && CanvasManager.step2Strokes.length === 0) {
+        showToast("아직 글씨를 쓰지 않았어요! 4선지 위에 예쁘게 써본 뒤 제출해 주세요 ✏️", "warning");
+        return;
+      }
+
+      const step1Img = CanvasManager.exportStepImage(1);
+      const step2Img = CanvasManager.exportStepImage(2);
+
+      const student = AppState.data.students[AppState.currentStudentId];
+      if (!student.submissions) student.submissions = {};
+
+      student.submissions[AppState.activeSession] = {
+        session: AppState.activeSession,
+        grade: AppState.activeGrade,
+        step1Img,
+        step2Img,
+        submittedAt: formatNow(),
+        status: 'submitted',
+        teacherComment: '',
+        teacherOverlayImg: null,
+        notified: false
+      };
+
+      StorageService.saveAll(AppState.data);
+      showToast(`🎉 ${AppState.activeSession}차시 필체 연습이 제출되었습니다! 포트폴리오에 저장되었어요.`, "success");
+      AppState.studentTab = 'portfolio';
+      renderApp();
+    }
+
+    function dismissNotification(session) {
+      const student = AppState.data.students[AppState.currentStudentId];
+      if (student && student.submissions && student.submissions[session]) {
+        student.submissions[session].notified = false;
+        StorageService.saveAll(AppState.data);
+        renderApp();
+      }
+    }
+
+    // 교사 기능 핸들러
+    function switchTeacherTab(tab) {
+      AppState.teacherTab = tab;
+      renderApp();
+    }
+
+    function setTeacherGradeFilter(grade) {
+      AppState.teacherFilterGrade = grade;
+      renderApp();
+    }
+
+    function setTeacherStatusFilter(status) {
+      AppState.teacherFilterStatus = status;
+      renderApp();
+    }
+
+    function openTeacherReview(studentId, session) {
+      AppState.reviewingStudentId = studentId;
+      AppState.reviewingSession = session;
+      renderApp();
+    }
+
+    function closeTeacherReview() {
+      AppState.reviewingStudentId = null;
+      AppState.reviewingSession = null;
+      renderApp();
+    }
+
+    function saveTeacherFeedback(newStatus) {
+      const student = AppState.data.students[AppState.reviewingStudentId];
+      const sub = student.submissions[AppState.reviewingSession];
+      const comment = document.getElementById('teacher-comment-input').value.trim();
+      const overlayImg = TeacherPenManager.exportOverlayImage();
+
+      sub.status = newStatus;
+      sub.teacherComment = comment || (newStatus === 'approved' ? '참 잘했어요! 글씨 균형이 아주 좋아졌습니다 🌟' : '조금 더 4선지 높이를 맞추어 다시 써볼까요? ✏️');
+      if (overlayImg) sub.teacherOverlayImg = overlayImg;
+      sub.notified = true;
+
+      StorageService.saveAll(AppState.data);
+      showToast(
+        newStatus === 'approved'
+          ? `🌟 ${student.name} 학생에게 칭찬 피드백을 전송했습니다!`
+          : `💌 ${student.name} 학생에게 재제출 요청 알림을 보냈습니다!`,
+        "success"
+      );
+      closeTeacherReview();
+    }
+
+    function updateCurriculumField(grade, idx, field, value) {
+      AppState.data.curriculum[grade][idx][field] = value;
+      StorageService.saveAll(AppState.data);
+      showToast("차시 문장이 수정 및 저장되었습니다!", "success");
+    }
+
+    function changeTeacherPassword() {
+      const newPw = document.getElementById('new-teacher-pw').value.trim();
+      if (!newPw) return;
+      AppState.data.teacherPassword = newPw;
+      localStorage.setItem(TEACHER_PASS_KEY, newPw);
+      StorageService.saveAll(AppState.data);
+      showToast("교사 비밀번호가 안전하게 변경되었습니다!", "success");
+    }
+
+    function exportAllDataJSON() {
+      const blob = new Blob([JSON.stringify(AppState.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `english-handwriting-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("전체 학습 데이터가 JSON 파일로 다운로드되었습니다!", "success");
+    }
+
+    // 초기 렌더링 실행
+    window.addEventListener('DOMContentLoaded', () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+      }
+      renderApp();
+    });
+  </script>
+</body>
+</html>
