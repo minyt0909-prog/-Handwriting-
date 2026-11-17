@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ENGLISH HANDWRITING - 영어 필체 교정 연습</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Andika:ital,wght@0,400;0,700;1,400&family=Fredoka:wght@400;500;600;700&family=Gowun+Dodum&family=Jua&display=stylesheet" rel="stylesheet">
+  
+  <!-- Firebase SDK (Compat for single-file GitHub Pages compatibility) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --bg-cream: #FFFDF7;
+      --card-white: #FFFFFF;
+      --pastel-pink: #FFE4E6;
+      --pastel-pink-dark: #FB7185;
+      --pastel-mint: #DCFCE7;
+      --pastel-mint-dark: #34D399;
+      --pastel-yellow: #FEF3C7;
+      --pastel-yellow-dark: #FBBF24;
+      --pastel-purple: #F3E8FF;
+      --pastel-purple-dark: #A855F7;
+      --pastel-blue: #E0F2FE;
+      --pastel-blue-dark: #38BDF8;
+      --text-main: #334155;
+    }
+
+    body {
+      font-family: 'Gowun Dodum', sans-serif;
+      background-color: var(--bg-cream);
+      background-image: radial-gradient(#FDE68A 1.2px, transparent 1.2px), radial-gradient(#FBCFE8 1.2px, #FFFDF7 1.2px);
+      background-size: 32px 32px;
+      background-position: 0 0, 16px 16px;
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+      overscroll-behavior-y: contain;
+    }
+
+    .font-title { font-family: 'Fredoka', 'Jua', sans-serif; }
+    .font-cute { font-family: 'Jua', sans-serif; }
+    .font-handwriting { font-family: 'Andika', sans-serif; }
+
+    canvas {
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .soft-shadow {
+      box-shadow: 0 10px 25px -5px rgba(251, 113, 133, 0.12), 0 8px 10px -6px rgba(251, 191, 36, 0.1);
+    }
+
+    .btn-bouncy {
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+    }
+    .btn-bouncy:active {
+      transform: scale(0.95);
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #FFF8EB; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #FDBA74; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #FB923C; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <div id="app" class="flex-1 flex flex-col"></div>
+
+  <script>
+    // =========================================================================
+    // 1. Firebase 실시간 클라우드 설정
+    // =========================================================================
+    const DEFAULT_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyCw2NHvKz4LalMZ3vJBa8lxVZxbOF1Jmac",
+      authDomain: "handwriting-a0d37.firebaseapp.com",
+      databaseURL: "https://handwriting-a0d37-default-rtdb.firebaseio.com",
+      projectId: "handwriting-a0d37",
+      storageBucket: "handwriting-a0d37.firebasestorage.app",
+      messagingSenderId: "377833958095",
+      appId: "1:377833958095:web:5b4bb2e6cb5b0ec7be65ba",
+      measurementId: "G-M99QPQ498K"
+    };
+
+    function getActiveFirebaseConfig() {
+      try {
+        const saved = localStorage.getItem('eh_custom_firebase_config');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.apiKey && parsed.databaseURL) return parsed;
+        }
+      } catch (e) {}
+      return DEFAULT_FIREBASE_CONFIG;
+    }
+
+    let firebaseDb = null;
+    let isCloudConnected = false;
+
+    function initFirebase() {
+      const cfg = getActiveFirebaseConfig();
+      if (cfg && cfg.apiKey && cfg.databaseURL && typeof firebase !== 'undefined') {
+        try {
+          if (!firebase.apps.length) {
+            firebase.initializeApp(cfg);
+          } else {
+            firebase.app();
+          }
+          firebaseDb = firebase.database();
+          isCloudConnected = true;
+        } catch (err) {
+          console.warn('Firebase init failed:', err);
+          isCloudConnected = false;
+        }
+      }
+    }
+    initFirebase();
+
+    // =========================================================================
+    // 2. 학년별 기본 10차시 교육과정 데이터
+    // =========================================================================
+    const DEFAULT_CURRICULUM = {
+      1: [
+        { session: 1, word: "Welcome", wordMeaning: "환영하다", sentence: "Welcome to our English class.", sentenceMeaning: "우리 영어 수업에 온 것을 환영해요." },
+        { session: 2, word: "Favorite", wordMeaning: "가장 좋아하는", sentence: "My favorite subject is English.", sentenceMeaning: "내가 가장 좋아하는 과목은 영어예요." },
+        { session: 3, word: "Together", wordMeaning: "함께", sentence: "We enjoy lunch together at school.", sentenceMeaning: "우리는 학교에서 함께 점심을 즐겨요." },
+        { session: 4, word: "Practice", wordMeaning: "연습하다", sentence: "I practice writing neatly every day.", sentenceMeaning: "나는 매일 반듯하게 글씨 쓰는 연습을 해요." },
+        { session: 5, word: "Weekend", wordMeaning: "주말", sentence: "What do you usually do on weekends?", sentenceMeaning: "너는 주말에 보통 무엇을 하니?" },
+        { session: 6, word: "Library", wordMeaning: "도서관", sentence: "She reads interesting books in the library.", sentenceMeaning: "그녀는 도서관에서 흥미로운 책을 읽어요." },
+        { session: 7, word: "Weather", wordMeaning: "날씨", sentence: "The weather is sunny and warm today.", sentenceMeaning: "오늘 날씨는 맑고 따뜻해요." },
+        { session: 8, word: "Healthy", wordMeaning: "건강한", sentence: "Eating fresh fruit keeps you healthy.", sentenceMeaning: "신선한 과일을 먹는 것은 너를 건강하게 해줘요." },
+        { session: 9, word: "Special", wordMeaning: "특별한", sentence: "Today is a very special day for me.", sentenceMeaning: "오늘은 나에게 매우 특별한 날이에요." },
+        { session: 10, word: "Proud", wordMeaning: "자랑스러운", sentence: "I am so proud of my handwriting!", sentenceMeaning: "나는 내 영어 필체가 정말 자랑스러워요!" }
+      ],
+      2: [
+        { session: 1, word: "Challenge", wordMeaning: "도전", sentence: "Every new challenge makes us stronger.", sentenceMeaning: "모든 새로운 도전은 우리를 더 강하게 만들어요." },
+        { session: 2, word: "Experience", wordMeaning: "경험", sentence: "Traveling gives us wonderful experiences.", sentenceMeaning: "여행은 우리에게 멋진 경험을 줍니다." },
+        { session: 3, word: "Confident", wordMeaning: "자신감 있는", sentence: "Speak loudly and look confident.", sentenceMeaning: "크게 말하고 자신감 있는 모습을 보여주세요." },
+        { session: 4, word: "Volunteer", wordMeaning: "자원봉사하다", sentence: "Many students volunteer to clean the park.", sentenceMeaning: "많은 학생들이 공원을 청소하는 자원봉사를 해요." },
+        { session: 5, word: "Habit", wordMeaning: "습관", sentence: "Good habits lead to great success.", sentenceMeaning: "좋은 습관은 위대한 성공으로 이어집니다." },
+        { session: 6, word: "Creative", wordMeaning: "창의적인", sentence: "She always comes up with creative ideas.", sentenceMeaning: "그녀는 항상 창의적인 아이디어를 떠올려요." },
+        { session: 7, word: "Environment", wordMeaning: "환경", sentence: "We must protect our green environment.", sentenceMeaning: "우리는 우리의 푸른 환경을 보호해야 합니다." },
+        { session: 8, word: "Concentrate", wordMeaning: "집중하다", sentence: "Try to concentrate on your neat handwriting.", sentenceMeaning: "반듯한 필체 쓰기에 집중해 보세요." },
+        { session: 9, word: "Grateful", wordMeaning: "감사하는", sentence: "I am grateful for my helpful friends.", sentenceMeaning: "나는 도움을 주는 친구들에게 감사해요." },
+        { session: 10, word: "Achieve", wordMeaning: "성취하다", sentence: "You can achieve anything if you never give up.", sentenceMeaning: "포기하지 않는다면 무엇이든 성취할 수 있어요." }
+      ],
+      3: [
+        { session: 1, word: "Opportunity", wordMeaning: "기회", sentence: "Education opens the door to new opportunities.", sentenceMeaning: "교육은 새로운 기회의 문을 열어줍니다." },
+        { session: 2, word: "Perspective", wordMeaning: "관점, 시각", sentence: "Reading helps us see from another perspective.", sentenceMeaning: "독서는 우리가 다른 관점에서 보도록 도와줍니다." },
+        { session: 3, word: "Perseverance", wordMeaning: "인내, 끈기", sentence: "Success requires patience and perseverance.", sentenceMeaning: "성공은 인내와 끈기를 필요로 합니다." },
+        { session: 4, word: "Communicate", wordMeaning: "의사소통하다", sentence: "Clear handwriting helps us communicate better.", sentenceMeaning: "또렷한 필체는 우리가 더 잘 소통하도록 도와줘요." },
+        { session: 5, word: "Sustainable", wordMeaning: "지속 가능한", sentence: "We need sustainable energy for our future.", sentenceMeaning: "우리는 미래를 위해 지속 가능한 에너지가 필요해요." },
+        { session: 6, word: "Curiosity", wordMeaning: "호기심", sentence: "Curiosity is the starting point of all learning.", sentenceMeaning: "호기심은 모든 배움의 출발점입니다." },
+        { session: 7, word: "Responsibility", wordMeaning: "책임감", sentence: "Taking responsibility is a sign of maturity.", sentenceMeaning: "책임을 지는 것은 성숙함의 표시입니다." },
+        { session: 8, word: "Appreciate", wordMeaning: "감사하다, 가치를 인정하다", sentence: "Learn to appreciate small moments in life.", sentenceMeaning: "삶의 작은 순간들에 감사하는 법을 배우세요." },
+        { session: 9, word: "Determination", wordMeaning: "결단력, 투지", sentence: "Her determination inspired everyone in class.", sentenceMeaning: "그녀의 투지는 반 모두에게 영감을 주었어요." },
+        { session: 10, word: "Accomplish", wordMeaning: "완수하다, 이루다", sentence: "I have accomplished all ten handwriting lessons!", sentenceMeaning: "나는 열 번의 필체 교정 수업을 모두 완수했어요!" }
+      ]
+    };
+
+    const DEFAULT_APP_DATA = {
+      teacherPassword: "1234",
+      curriculum: DEFAULT_CURRICULUM,
+      students: {},
+      submissions: {},
+      notifications: {}
+    };
+
+    // =========================================================================
+    // 3. 통합 클라우드 & 로컬 스토리지 서비스
+    // =========================================================================
+    const StorageService = {
+      LOCAL_KEY: 'english_handwriting_app_v6',
+      CLOUD_ROOT: 'english_handwriting_v6',
+
+      loadLocal() {
+        try {
+          const raw = localStorage.getItem(this.LOCAL_KEY);
+          if (!raw) return JSON.parse(JSON.stringify(DEFAULT_APP_DATA));
+          const parsed = JSON.parse(raw);
+          return {
+            teacherPassword: parsed.teacherPassword || "1234",
+            curriculum: parsed.curriculum || JSON.parse(JSON.stringify(DEFAULT_CURRICULUM)),
+            students: parsed.students || {},
+            submissions: parsed.submissions || {},
+            notifications: parsed.notifications || {}
+          };
+        } catch (e) {
+          return JSON.parse(JSON.stringify(DEFAULT_APP_DATA));
+        }
+      },
+
+      saveLocal(data) {
+        try {
+          localStorage.setItem(this.LOCAL_KEY, JSON.stringify(data));
+        } catch (e) {
+          console.error('Local save failed:', e);
+        }
+      },
+
+      async loadAll() {
+        if (isCloudConnected && firebaseDb) {
+          try {
+            const snap = await firebaseDb.ref(this.CLOUD_ROOT).once('value');
+            const val = snap.val();
+            if (val) {
+              const merged = {
+                teacherPassword: val.teacherPassword || "1234",
+                curriculum: val.curriculum || JSON.parse(JSON.stringify(DEFAULT_CURRICULUM)),
+                students: val.students || {},
+                submissions: val.submissions || {},
+                notifications: val.notifications || {}
+              };
+              this.saveLocal(merged);
+              return merged;
+            } else {
+              const initial = this.loadLocal();
+              await firebaseDb.ref(this.CLOUD_ROOT).set(initial);
+              return initial;
+            }
+          } catch (e) {
+            console.warn('Cloud load fallback to local:', e);
+          }
+        }
+        return this.loadLocal();
+      },
+
+      async savePath(path, value, fullData) {
+        this.saveLocal(fullData);
+        if (isCloudConnected && firebaseDb) {
+          try {
+            await firebaseDb.ref(`${this.CLOUD_ROOT}/${path}`).set(value);
+          } catch (e) {
+            console.error('Cloud path save failed:', e);
+          }
+        }
+      }
+    };
+
+    // =========================================================================
+    // 4. 전역 상태 관리
+    // =========================================================================
+    const AppState = {
+      data: StorageService.loadLocal(),
+      user: null,
+      studentView: 'roadmap',
+      activeSession: 1,
+      teacherTab: 'dashboard',
+      teacherFilterGrade: 'all',
+      teacherFilterStatus: 'all',
+      teacherSearchQuery: '',
+      teacherSelectedSubmission: null,
+      teacherManageGrade: 1,
+      studentListFilterGrade: 'all',
+      showNotifDropdown: false,
+      isSyncing: false,
+      toast: null
+    };
+
+    function showToast(message, type = 'info') {
+      AppState.toast = { message, type };
+      renderApp();
+      setTimeout(() => {
+        if (AppState.toast && AppState.toast.message === message) {
+          AppState.toast = null;
+          renderApp();
+        }
+      }, 3200);
+    }
+
+    async function syncFromCloud(silent = true) {
+      if (!isCloudConnected) return;
+      AppState.isSyncing = true;
+      if (!silent) renderApp();
+      AppState.data = await StorageService.loadAll();
+      AppState.isSyncing = false;
+      renderApp();
+    }
+
+    // =========================================================================
+    // 5. TTS 원어민 음성 발음 엔진
+    // =========================================================================
+    function speakEnglish(text, rate = 0.88) {
+      if (!('speechSynthesis' in window)) {
+        showToast('이 브라우저에서는 음성 듣기(TTS)를 지원하지 않아요.', 'error');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = rate;
+      utterance.pitch = 1.05;
+
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => v.lang.includes('en-US') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha')))
+                     || voices.find(v => v.lang.includes('en'));
+      if (preferred) utterance.voice = preferred;
+
+      window.speechSynthesis.speak(utterance);
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+
+    // =========================================================================
+    // 6. 4선지 노트 & 투명 드로잉 레이어 캔버스 매니저 (사선지 고정형)
+    // =========================================================================
+    const CanvasManager = {
+      canvases: {},
+      history: {},
+      tool: 'pen',
+      color: '#1E293B',
+      lineWidth: 3.5,
+
+      init(canvasId, options) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const container = canvas.parentElement;
+        const rect = container.getBoundingClientRect();
+        const width = Math.max(rect.width, 620);
+        const height = options.height || 175;
+        const dpr = window.devicePixelRatio || 1;
+
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        this.canvases[canvasId] = { canvas, ctx, width, height, dpr, options };
+        if (!this.history[canvasId]) this.history[canvasId] = [];
+
+        ctx.clearRect(0, 0, width, height);
+
+        if (options.initialDataUrl) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0, width, height);
+            this.pushHistory(canvasId);
+          };
+          img.src = options.initialDataUrl;
+        } else {
+          this.pushHistory(canvasId);
+        }
+
+        this.bindEvents(canvasId);
+      },
+
+      bindEvents(canvasId) {
+        const item = this.canvases[canvasId];
+        if (!item) return;
+        const { canvas, ctx } = item;
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        const getPos = (e) => {
+          const rect = canvas.getBoundingClientRect();
+          return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        };
+
+        canvas.onpointerdown = (e) => {
+          if (e.pointerType === 'touch' && e.width > 12) return;
+          isDrawing = true;
+          canvas.setPointerCapture(e.pointerId);
+          const pos = getPos(e);
+          lastX = pos.x;
+          lastY = pos.y;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          if (this.tool === 'eraser') {
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.strokeStyle = 'rgba(0,0,0,1)';
+            ctx.lineWidth = 26;
+          } else {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = this.color;
+            const pressureFactor = (e.pointerType === 'pen' && e.pressure > 0) ? (0.65 + e.pressure * 0.75) : 1;
+            ctx.lineWidth = this.lineWidth * pressureFactor;
+          }
+          ctx.moveTo(lastX, lastY);
+          ctx.lineTo(lastX + 0.1, lastY + 0.1);
+          ctx.stroke();
+          ctx.restore();
+        };
+
+        canvas.onpointermove = (e) => {
+          if (!isDrawing) return;
+          const pos = getPos(e);
+          ctx.save();
+          ctx.beginPath();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          if (this.tool === 'eraser') {
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.strokeStyle = 'rgba(0,0,0,1)';
+            ctx.lineWidth = 26;
+          } else {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = this.color;
+            const pressureFactor = (e.pointerType === 'pen' && e.pressure > 0) ? (0.65 + e.pressure * 0.75) : 1;
+            ctx.lineWidth = this.lineWidth * pressureFactor;
+          }
+          ctx.moveTo(lastX, lastY);
+          ctx.lineTo(pos.x, pos.y);
+          ctx.stroke();
+          ctx.restore();
+
+          lastX = pos.x;
+          lastY = pos.y;
+        };
+
+        const stopDrawing = (e) => {
+          if (!isDrawing) return;
+          isDrawing = false;
+          if (e && e.pointerId) {
+            try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+          }
+          this.pushHistory(canvasId);
+        };
+
+        canvas.onpointerup = stopDrawing;
+        canvas.onpointercancel = stopDrawing;
+      },
+
+      pushHistory(canvasId) {
+        const item = this.canvases[canvasId];
+        if (!item) return;
+        const url = item.canvas.toDataURL('image/png');
+        const list = this.history[canvasId] || [];
+        if (list.length > 15) list.shift();
+        list.push(url);
+        this.history[canvasId] = list;
+      },
+
+      undo(canvasId) {
+        const item = this.canvases[canvasId];
+        const list = this.history[canvasId];
+        if (!item || !list || list.length <= 1) {
+          this.clear(canvasId);
+          return;
+        }
+        list.pop();
+        const prevUrl = list[list.length - 1];
+        const img = new Image();
+        img.onload = () => {
+          item.ctx.globalCompositeOperation = 'source-over';
+          item.ctx.clearRect(0, 0, item.width, item.height);
+          item.ctx.drawImage(img, 0, 0, item.width, item.height);
+        };
+        img.src = prevUrl;
+      },
+
+      clear(canvasId) {
+        const item = this.canvases[canvasId];
+        if (!item) return;
+        item.ctx.globalCompositeOperation = 'source-over';
+        item.ctx.clearRect(0, 0, item.width, item.height);
+        this.history[canvasId] = [];
+        this.pushHistory(canvasId);
+      },
+
+      exportImage(canvasId) {
+        const item = this.canvases[canvasId];
+        if (!item) return null;
+        const { width, height } = item;
+        
+        // 제출 시: 배경(사선지+가이드)과 학생 필기 레이어를 완벽하게 합쳐서 하나의 이미지로 생성
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tCtx = tempCanvas.getContext('2d');
+
+        // 백그라운드 흰색 채우기
+        tCtx.fillStyle = '#FFFFFF';
+        tCtx.fillRect(0, 0, width, height);
+
+        // 4선지 선 그리기
+        const padX = 24;
+        const topY = Math.round(height * 0.22);
+        const midY = Math.round(height * 0.48);
+        const baseY = Math.round(height * 0.74);
+        const descY = Math.round(height * 0.90);
+
+        tCtx.save();
+        tCtx.beginPath(); tCtx.strokeStyle = '#93C5FD'; tCtx.lineWidth = 1.5;
+        tCtx.moveTo(padX, topY); tCtx.lineTo(width - padX, topY); tCtx.stroke();
+
+        tCtx.beginPath(); tCtx.setLineDash([6, 6]); tCtx.strokeStyle = '#CBD5E1'; tCtx.lineWidth = 1.4;
+        tCtx.moveTo(padX, midY); tCtx.lineTo(width - padX, midY); tCtx.stroke();
+        tCtx.setLineDash([]);
+
+        tCtx.beginPath(); tCtx.strokeStyle = '#FDA4AF'; tCtx.lineWidth = 2.0;
+        tCtx.moveTo(padX, baseY); tCtx.lineTo(width - padX, baseY); tCtx.stroke();
+
+        tCtx.beginPath(); tCtx.strokeStyle = '#93C5FD'; tCtx.lineWidth = 1.5;
+        tCtx.moveTo(padX, descY); tCtx.lineTo(width - padX, descY); tCtx.stroke();
+
+        // 가이드 텍스트 (있는 경우)
+        if (item.options.guideText) {
+          const text = item.options.guideText;
+          const padLeft = padX + 12;
+          const maxW = width - padLeft - 24;
+          let fontSize = Math.round((baseY - topY) * 0.98);
+          tCtx.font = `400 ${fontSize}px 'Andika', sans-serif`;
+          let measured = tCtx.measureText(text).width;
+          if (measured > maxW) {
+            fontSize = Math.floor(fontSize * (maxW / measured));
+            tCtx.font = `400 ${fontSize}px 'Andika', sans-serif`;
+          }
+          tCtx.fillStyle = 'rgba(148, 163, 184, 0.35)';
+          tCtx.textBaseline = 'alphabetic';
+          tCtx.fillText(text, padLeft, baseY - 1);
+        }
+        tCtx.restore();
+
+        // 학생 필기 레이어 얹기
+        tCtx.drawImage(item.canvas, 0, 0);
+
+        return tempCanvas.toDataURL('image/jpeg', 0.85);
+      }
+    };
+
+    // =========================================================================
+    // 7. 교사용 빨간펜 첨삭 캔버스 매니저
+    // =========================================================================
+    const TeacherPenManager = {
+      activeTarget: 'sentenceSolo1',
+      color: '#EF4444',
+      lineWidth: 3.5,
+      layers: {},
+
+      init(targetKey, baseImgSrc, existingAnnotationSrc) {
+        const canvas = document.getElementById('teacher-pen-canvas');
+        if (!canvas) return;
+        const width = 680;
+        const height = 190;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = '100%';
+        canvas.style.maxWidth = width + 'px';
+        canvas.style.height = 'auto';
+
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, width, height);
+
+        const bgImg = document.getElementById('teacher-base-img');
+        if (bgImg && baseImgSrc) bgImg.src = baseImgSrc;
+
+        const saved = this.layers[targetKey] || existingAnnotationSrc;
+        if (saved) {
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0, width, height);
+          img.src = saved;
+        }
+
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+
+        const getPos = (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = width / rect.width;
+          const scaleY = height / rect.height;
+          return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+        };
+
+        canvas.onpointerdown = (e) => {
+          isDrawing = true;
+          canvas.setPointerCapture(e.pointerId);
+          const pos = getPos(e);
+          lastX = pos.x; lastY = pos.y;
+          ctx.save();
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = this.color;
+          ctx.lineWidth = this.lineWidth;
+          ctx.moveTo(lastX, lastY);
+          ctx.lineTo(lastX + 0.1, lastY + 0.1);
+          ctx.stroke();
+          ctx.restore();
+        };
+
+        canvas.onpointermove = (e) => {
+          if (!isDrawing) return;
+          const pos = getPos(e);
+          ctx.save();
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = this.color;
+          ctx.lineWidth = this.lineWidth;
+          ctx.moveTo(lastX, lastY);
+          ctx.lineTo(pos.x, pos.y);
+          ctx.stroke();
+          ctx.restore();
+          lastX = pos.x; lastY = pos.y;
+        };
+
+        const finish = (e) => {
+          if (!isDrawing) return;
+          isDrawing = false;
+          if (e && e.pointerId) {
+            try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+          }
+          this.layers[targetKey] = canvas.toDataURL('image/png');
+        };
+
+        canvas.onpointerup = finish;
+        canvas.onpointercancel = finish;
+      },
+
+      clearCurrent() {
+        const canvas = document.getElementById('teacher-pen-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 680, 190);
+        this.layers[this.activeTarget] = null;
+      }
+    };
+
+    // =========================================================================
+    // 8. 로그인 및 데이터 액션 핸들러
+    // =========================================================================
+    async function handleStudentLogin(e) {
+      e.preventDefault();
+      const studentId = document.getElementById('login-student-id').value.trim();
+      const password = document.getElementById('login-student-pw').value.trim();
+
+      if (!studentId || !password) {
+        showToast('학번과 비밀번호를 모두 입력해 주세요!', 'error');
+        return;
+      }
+
+      if (isCloudConnected) {
+        AppState.isSyncing = true;
+        renderApp();
+        AppState.data = await StorageService.loadAll();
+        AppState.isSyncing = false;
+      }
+
+      const registered = AppState.data.students[studentId];
+      if (!registered) {
+        showToast('등록되지 않은 학번입니다. 선생님께 문의해 주세요!', 'error');
+        renderApp();
+        return;
+      }
+
+      if (registered.password !== password) {
+        showToast('비밀번호가 일치하지 않습니다. 다시 확인해 주세요!', 'error');
+        renderApp();
+        return;
+      }
+
+      const studentGrade = Number(registered.grade) || 1;
+      AppState.user = {
+        role: 'student',
+        studentId,
+        grade: studentGrade
+      };
+      AppState.studentView = 'roadmap';
+      AppState.activeSession = 1;
+      showToast(`${studentId} 학생, 환영해요! 오늘도 예쁘게 써봐요 ✨`, 'success');
+      renderApp();
+    }
+
+    async function handleTeacherLogin(e) {
+      e.preventDefault();
+      const pw = document.getElementById('login-teacher-pw').value.trim();
+
+      if (isCloudConnected) {
+        AppState.isSyncing = true;
+        renderApp();
+        AppState.data = await StorageService.loadAll();
+        AppState.isSyncing = false;
+      }
+
+      if (pw === AppState.data.teacherPassword) {
+        AppState.user = { role: 'teacher' };
+        AppState.teacherTab = 'dashboard';
+        showToast('선생님, 환영합니다! 교사 대시보드에 접속했어요 🌷', 'success');
+        renderApp();
+      } else {
+        showToast('교사 비밀번호가 올바르지 않습니다.', 'error');
+        renderApp();
+      }
+    }
+
+    function logout() {
+      AppState.user = null;
+      AppState.showNotifDropdown = false;
+      AppState.teacherSelectedSubmission = null;
+      renderApp();
+    }
+
+    function openPracticeSession(sessionNum) {
+      AppState.activeSession = sessionNum;
+      AppState.studentView = 'practice';
+      renderApp();
+      setTimeout(() => initPracticeCanvases(), 50);
+    }
+
+    function initPracticeCanvases() {
+      const { grade, studentId } = AppState.user;
+      const item = AppState.data.curriculum[grade][AppState.activeSession - 1];
+      const subKey = `${studentId}_${grade}_${AppState.activeSession}`;
+      const existing = AppState.data.submissions[subKey];
+
+      CanvasManager.history = {};
+      CanvasManager.init('canvas-word-trace', {
+        height: 155, guideText: item.word, initialDataUrl: existing ? existing.wordTraceImg : null
+      });
+      CanvasManager.init('canvas-word-solo1', {
+        height: 155, guideText: null, initialDataUrl: existing ? existing.wordSolo1Img : null
+      });
+      CanvasManager.init('canvas-word-solo2', {
+        height: 155, guideText: null, initialDataUrl: existing ? existing.wordSolo2Img : null
+      });
+
+      CanvasManager.init('canvas-sentence-trace', {
+        height: 175, guideText: item.sentence, initialDataUrl: existing ? existing.sentenceTraceImg : null
+      });
+      CanvasManager.init('canvas-sentence-solo1', {
+        height: 175, guideText: null, initialDataUrl: existing ? existing.sentenceSolo1Img : null
+      });
+      CanvasManager.init('canvas-sentence-solo2', {
+        height: 175, guideText: null, initialDataUrl: existing ? existing.sentenceSolo2Img : null
+      });
+    }
+
+    async function submitPracticeWork() {
+      const { grade, studentId } = AppState.user;
+      const session = AppState.activeSession;
+      const subKey = `${studentId}_${grade}_${session}`;
+      const prev = AppState.data.submissions[subKey];
+
+      const submissionObj = {
+        key: subKey,
+        studentId,
+        grade,
+        session,
+        wordTraceImg: CanvasManager.exportImage('canvas-word-trace'),
+        wordSolo1Img: CanvasManager.exportImage('canvas-word-solo1'),
+        wordSolo2Img: CanvasManager.exportImage('canvas-word-solo2'),
+        sentenceTraceImg: CanvasManager.exportImage('canvas-sentence-trace'),
+        sentenceSolo1Img: CanvasManager.exportImage('canvas-sentence-solo1'),
+        sentenceSolo2Img: CanvasManager.exportImage('canvas-sentence-solo2'),
+        status: 'submitted',
+        submittedAt: new Date().toLocaleString('ko-KR'),
+        attemptCount: prev ? (prev.attemptCount || 1) + 1 : 1,
+        teacherTextFeedback: prev ? prev.teacherTextFeedback : '',
+        teacherAnnotations: prev ? (prev.teacherAnnotations || {}) : {}
+      };
+
+      AppState.data.submissions[subKey] = submissionObj;
+      await StorageService.savePath(`submissions/${subKey}`, submissionObj, AppState.data);
+
+      showToast(`${session}차시 필체 연습을 성공적으로 제출했어요! 🎉`, 'success');
+      AppState.studentView = 'roadmap';
+      renderApp();
+    }
+
+    async function markNotificationsRead() {
+      if (!AppState.user || AppState.user.role !== 'student') return;
+      const sid = AppState.user.studentId;
+      const list = AppState.data.notifications[sid] || [];
+      let changed = false;
+      list.forEach(n => {
+        if (!n.read) { n.read = true; changed = true; }
+      });
+      if (changed) {
+        AppState.data.notifications[sid] = list;
+        await StorageService.savePath(`notifications/${sid}`, list, AppState.data);
+      }
+    }
+
+    function openTeacherFeedbackModal(subKey) {
+      const sub = AppState.data.submissions[subKey];
+      if (!sub) return;
+      AppState.teacherSelectedSubmission = subKey;
+      TeacherPenManager.activeTarget = 'sentenceSolo1';
+      TeacherPenManager.layers = { ...(sub.teacherAnnotations || {}) };
+      renderApp();
+      setTimeout(() => {
+        TeacherPenManager.init('sentenceSolo1', sub.sentenceSolo1Img, TeacherPenManager.layers['sentenceSolo1']);
+      }, 60);
+    }
+
+    function switchTeacherPenTarget(targetKey) {
+      const sub = AppState.data.submissions[AppState.teacherSelectedSubmission];
+      if (!sub) return;
+      TeacherPenManager.activeTarget = targetKey;
+      const imgMap = {
+        wordTrace: sub.wordTraceImg,
+        wordSolo1: sub.wordSolo1Img,
+        wordSolo2: sub.wordSolo2Img,
+        sentenceTrace: sub.sentenceTraceImg,
+        sentenceSolo1: sub.sentenceSolo1Img,
+        sentenceSolo2: sub.sentenceSolo2Img
+      };
+      renderApp();
+      setTimeout(() => {
+        TeacherPenManager.init(targetKey, imgMap[targetKey], TeacherPenManager.layers[targetKey]);
+      }, 40);
+    }
+
+    async function saveTeacherFeedback(newStatus) {
+      const subKey = AppState.teacherSelectedSubmission;
+      const sub = AppState.data.submissions[subKey];
+      if (!sub) return;
+
+      const textFeedback = document.getElementById('teacher-feedback-text').value.trim();
+      sub.status = newStatus;
+      sub.teacherTextFeedback = textFeedback;
+      sub.teacherAnnotations = { ...TeacherPenManager.layers };
+      sub.reviewedAt = new Date().toLocaleString('ko-KR');
+
+      AppState.data.submissions[subKey] = sub;
+
+      const sid = sub.studentId;
+      if (!AppState.data.notifications[sid]) AppState.data.notifications[sid] = [];
+      const notifMsg = newStatus === 'resubmit'
+        ? `[재제출 요청] ${sub.session}차시 필체 교정 피드백이 도착했어요! 확인 후 다시 써서 제출해 주세요.`
+        : `[참 잘했어요!] ${sub.session}차시 필체 교정 선생님 피드백이 도착했어요!`;
+
+      AppState.data.notifications[sid].unshift({
+        id: 'notif_' + Date.now(),
+        session: sub.session,
+        grade: sub.grade,
+        status: newStatus,
+        message: notifMsg,
+        feedbackText: textFeedback,
+        createdAt: new Date().toLocaleString('ko-KR'),
+        read: false
+      });
+
+      await StorageService.savePath(`submissions/${subKey}`, sub, AppState.data);
+      await StorageService.savePath(`notifications/${sid}`, AppState.data.notifications[sid], AppState.data);
+
+      AppState.teacherSelectedSubmission = null;
+      showToast(newStatus === 'resubmit' ? '재제출 요청과 피드백을 전송했습니다.' : '피드백 및 승인 완료 처리되었습니다! ✨', 'success');
+      renderApp();
+    }
+
+    // =========================================================================
+    // 9. 교사 관리 기능
+    // =========================================================================
+    function fillSampleBulkStudents() {
+      const el = document.getElementById('bulk-student-input');
+      if (!el) return;
+      el.value = "10101\t1234\n10102\t1234\n20101\t1234\n30101\t1234";
+    }
+
+    async function handleBulkRegisterStudents() {
+      const raw = document.getElementById('bulk-student-input').value.trim();
+      const defaultPwMode = document.getElementById('bulk-default-pw-mode').value;
+      if (!raw) {
+        showToast('등록할 학번과 비밀번호 목록을 입력해 주세요!', 'error');
+        return;
+      }
+
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      let addedCount = 0;
+
+      lines.forEach(line => {
+        const cols = line.split(/[\t,]+|\s+/).map(c => c.trim()).filter(Boolean);
+        if (cols.length === 0) return;
+
+        let grade = 1;
+        let studentId = '';
+        let pw = '';
+
+        if (cols.length >= 3 && ['1', '2', '3'].includes(cols[0])) {
+          grade = Number(cols[0]);
+          studentId = cols[1];
+          pw = cols[2];
+        } else {
+          studentId = cols[0];
+          const firstDigit = studentId.charAt(0);
+          grade = ['1', '2', '3'].includes(firstDigit) ? Number(firstDigit) : 1;
+          pw = cols[1] || '';
+        }
+
+        if (!studentId || isNaN(Number(studentId))) return;
+        if (!pw) {
+          pw = defaultPwMode === 'same_as_id' ? studentId : '1234';
+        }
+
+        AppState.data.students[studentId] = {
+          studentId,
+          grade,
+          password: pw,
+          updatedAt: new Date().toISOString()
+        };
+        addedCount++;
+      });
+
+      if (addedCount === 0) {
+        showToast('인식된 유효한 학번 데이터가 없습니다.', 'error');
+        return;
+      }
+
+      await StorageService.savePath('students', AppState.data.students, AppState.data);
+      document.getElementById('bulk-student-input').value = '';
+      showToast(`총 ${addedCount}명의 학생 계정이 일괄 등록되었습니다! 🎉`, 'success');
+      renderApp();
+    }
+
+    async function resetStudentPassword(studentId) {
+      const st = AppState.data.students[studentId];
+      if (!st) return;
+      st.password = '1234';
+      await StorageService.savePath(`students/${studentId}`, st, AppState.data);
+      showToast(`${studentId} 학생의 비밀번호가 1234로 초기화되었습니다.`, 'success');
+      renderApp();
+    }
+
+    async function deleteStudentAccount(studentId) {
+      delete AppState.data.students[studentId];
+      await StorageService.savePath('students', AppState.data.students, AppState.data);
+      showToast(`${studentId} 학생 계정이 삭제되었습니다.`, 'info');
+      renderApp();
+    }
+
+    function updateCurriculumField(grade, idx, field, value) {
+      AppState.data.curriculum[grade][idx][field] = value;
+    }
+
+    async function saveCurriculumChanges() {
+      await StorageService.savePath('curriculum', AppState.data.curriculum, AppState.data);
+      showToast('학년별 10차시 학습 문장이 저장되었습니다! 모든 기기에 반영됩니다.', 'success');
+    }
+
+    async function updateTeacherPassword() {
+      const newPw = document.getElementById('new-teacher-pw').value.trim();
+      if (!newPw || newPw.length < 4) {
+        showToast('새 비밀번호는 4자리 이상으로 입력해 주세요.', 'error');
+        return;
+      }
+      AppState.data.teacherPassword = newPw;
+      await StorageService.savePath('teacherPassword', newPw, AppState.data);
+      document.getElementById('new-teacher-pw').value = '';
+      showToast('교사 비밀번호가 안전하게 변경되었습니다! 🔒', 'success');
+    }
+
+    // =========================================================================
+    // 10. UI 렌더링 함수들 (사선지 CSS 백그라운드 적용)
+    // =========================================================================
+    function renderFourLineField(canvasId, guideText) {
+      return `
+        <div class="relative w-full rounded-2xl border-2 border-sky-100 bg-white overflow-hidden" style="height: 175px;">
+          <!-- 사선지 라인 및 따라쓰기 가이드 배경 HTML/SVG 레이어 (절대 지워지지 않음) -->
+          <div class="absolute inset-0 pointer-events-none flex flex-col justify-between px-6 py-4 select-none opacity-60">
+            <div class="w-full border-b border-blue-200"></div>
+            <div class="w-full border-b border-dashed border-slate-300"></div>
+            <div class="w-full border-b-2 border-rose-300"></div>
+            <div class="w-full border-b border-blue-200"></div>
+          </div>
+          ${guideText ? `
+            <div class="absolute inset-0 pointer-events-none flex items-center px-8 select-none">
+              <span class="font-handwriting font-normal text-slate-400 opacity-35" style="font-size: 82px; line-height: 1;">${guideText}</span>
+            </div>
+          ` : ''}
+          <!-- 학생들이 펜으로 쓰고 지우는 투명 드로잉 캔버스 레이어 -->
+          <canvas id="${canvasId}" class="absolute inset-0 w-full h-full cursor-crosshair z-10"></canvas>
+        </div>
+      `;
+    }
+
+    function renderApp() {
+      const root = document.getElementById('app');
+      let html = '';
+
+      if (AppState.toast) {
+        const bgClass = AppState.toast.type === 'error'
+          ? 'bg-rose-500 text-white'
+          : AppState.toast.type === 'success'
+            ? 'bg-emerald-500 text-white'
+            : 'bg-slate-800 text-white';
+        html += `
+          <div class="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-xl font-cute text-base flex items-center gap-2 ${bgClass} animate-bounce">
+            <span>${AppState.toast.type === 'error' ? '⚠️' : '✨'}</span>
+            <span>${AppState.toast.message}</span>
+          </div>
+        `;
+      }
+
+      if (!AppState.user) {
+        html += renderLoginView();
+      } else if (AppState.user.role === 'student') {
+        html += renderStudentHeader();
+        if (AppState.studentView === 'roadmap') {
+          html += renderStudentRoadmap();
+        } else {
+          html += renderStudentPractice();
+        }
+      } else if (AppState.user.role === 'teacher') {
+        html += renderTeacherHeader();
+        if (AppState.teacherTab === 'dashboard') {
+          html += renderTeacherDashboard();
+        } else {
+          html += renderTeacherManageView();
+        }
+        if (AppState.teacherSelectedSubmission) {
+          html += renderTeacherFeedbackModal();
+        }
+      }
+
+      root.innerHTML = html;
+    }
+
+    function renderLoginView() {
+      return `
+        <div class="flex-1 flex flex-col items-center justify-center p-4 sm:p-8">
+          <div class="text-center mb-8">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 font-cute text-sm mb-3 shadow-sm">
+              <span>✏️ 하루 5~10분 반듯한 영어 글씨 프로젝트</span>
+            </div>
+            <h1 class="font-title text-4xl sm:text-5xl font-bold tracking-tight text-slate-800 drop-shadow-sm">
+              <span class="text-rose-400">ENGLISH</span> <span class="text-sky-500">HANDWRITING</span>
+            </h1>
+            <p class="mt-2 text-lg font-cute text-slate-600">영어 필체 교정 연습 노트</p>
+          </div>
+
+          <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white/95 backdrop-blur rounded-3xl p-7 border-2 border-rose-100 soft-shadow flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-3 mb-5">
+                  <div class="w-12 h-12 rounded-2xl bg-rose-100 flex items-center justify-center text-2xl">🎒</div>
+                  <div>
+                    <h2 class="font-cute text-2xl text-slate-800">학생 로그인</h2>
+                    <p class="text-xs text-slate-500">선생님이 등록해 준 학번과 비밀번호를 입력하세요</p>
+                  </div>
+                </div>
+                <form onsubmit="handleStudentLogin(event)" class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">학번 (Student ID)</label>
+                    <input id="login-student-id" type="text" inputmode="numeric" placeholder="예: 10101" required
+                      class="w-full px-4 py-3 rounded-2xl bg-rose-50/50 border-2 border-rose-100 focus:border-rose-400 focus:bg-white outline-none text-base transition" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">비밀번호 (Password)</label>
+                    <input id="login-student-pw" type="password" placeholder="비밀번호 입력" required
+                      class="w-full px-4 py-3 rounded-2xl bg-rose-50/50 border-2 border-rose-100 focus:border-rose-400 focus:bg-white outline-none text-base transition" />
+                  </div>
+                  <button type="submit"
+                    class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-rose-400 to-pink-500 hover:from-rose-500 hover:to-pink-600 text-white font-cute text-lg shadow-md btn-bouncy mt-2">
+                    연습실 입장하기 ✍️
+                  </button>
+                </form>
+              </div>
+              <div class="mt-5 pt-4 border-t border-rose-50 text-xs text-slate-400 text-center">
+                갤럭시탭 & S펜 사용 권장 · 어느 브라우저에서도 자동 누적 저장됩니다
+              </div>
+            </div>
+
+            <div class="bg-white/95 backdrop-blur rounded-3xl p-7 border-2 border-sky-100 soft-shadow flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-3 mb-5">
+                  <div class="w-12 h-12 rounded-2xl bg-sky-100 flex items-center justify-center text-2xl">👩‍🏫</div>
+                  <div>
+                    <h2 class="font-cute text-2xl text-slate-800">교사 대시보드</h2>
+                    <p class="text-xs text-slate-500">학생 포트폴리오 확인 및 펜 첨삭 피드백</p>
+                  </div>
+                </div>
+                <form onsubmit="handleTeacherLogin(event)" class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">교사 전용 비밀번호</label>
+                    <input id="login-teacher-pw" type="password" placeholder="교사 비밀번호 입력" required
+                      class="w-full px-4 py-3 rounded-2xl bg-sky-50/50 border-2 border-sky-100 focus:border-sky-400 focus:bg-white outline-none text-base transition" />
+                  </div>
+                  <button type="submit"
+                    class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-400 to-indigo-500 hover:from-sky-500 hover:to-indigo-600 text-white font-cute text-lg shadow-md btn-bouncy mt-2">
+                    교사 대시보드 열기 📋
+                  </button>
+                </form>
+              </div>
+              <div class="mt-5 pt-4 border-t border-sky-50 flex items-center justify-between text-xs text-slate-500">
+                <span class="inline-flex items-center gap-1.5 font-medium ${isCloudConnected ? 'text-emerald-600' : 'text-amber-600'}">
+                  <span class="w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}"></span>
+                  ${isCloudConnected ? '☁️ 클라우드 실시간 동기화 연결됨' : '로컬 브라우저 저장 모드'}
+                </span>
+                <span>10차시 커리큘럼</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderStudentHeader() {
+      const { studentId, grade } = AppState.user;
+      const notifs = AppState.data.notifications[studentId] || [];
+      const unreadCount = notifs.filter(n => !n.read).length;
+
+      return `
+        <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b-2 border-rose-100 px-4 sm:px-8 py-3">
+          <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="AppState.studentView='roadmap'; renderApp();">
+              <span class="text-2xl">✏️</span>
+              <div>
+                <h1 class="font-title text-xl sm:text-2xl font-bold text-slate-800 leading-none">
+                  <span class="text-rose-400">ENGLISH</span> <span class="text-sky-500">HANDWRITING</span>
+                </h1>
+                <p class="text-xs text-slate-500 mt-0.5">중학교 ${grade}학년 과정 · <strong class="text-rose-500">${studentId}</strong> 학생</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+              <button onclick="syncFromCloud(false)" title="최신 피드백 새로고침"
+                class="px-3 py-2 rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-600 font-cute text-sm transition">
+                🔄 새로고침
+              </button>
+
+              <div class="relative">
+                <button onclick="AppState.showNotifDropdown = !AppState.showNotifDropdown; markNotificationsRead(); renderApp();"
+                  class="relative px-3.5 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-cute text-sm flex items-center gap-1.5 btn-bouncy">
+                  <span>🔔 알림</span>
+                  ${unreadCount > 0 ? `<span class="px-1.5 py-0.5 text-xs rounded-full bg-rose-500 text-white font-sans font-bold">${unreadCount}</span>` : ''}
+                </button>
+
+                ${AppState.showNotifDropdown ? `
+                  <div class="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border-2 border-amber-100 p-4 z-50">
+                    <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                      <span class="font-cute text-base text-slate-800">💌 선생님 피드백 알림</span>
+                      <button onclick="AppState.showNotifDropdown=false; renderApp();" class="text-xs text-slate-400 hover:text-slate-600">닫기 ✕</button>
+                    </div>
+                    <div class="max-h-72 overflow-y-auto space-y-2">
+                      ${notifs.length === 0
+                        ? `<p class="text-center text-sm text-slate-400 py-6">아직 도착한 선생님 피드백이 없어요.</p>`
+                        : notifs.map(n => `
+                          <div onclick="AppState.showNotifDropdown=false; openPracticeSession(${n.session});"
+                            class="p-3 rounded-2xl cursor-pointer transition border ${n.status === 'resubmit' ? 'bg-rose-50/70 border-rose-200 hover:bg-rose-100/70' : 'bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100/70'}">
+                            <div class="flex items-center justify-between text-xs font-bold mb-1">
+                              <span class="${n.status === 'resubmit' ? 'text-rose-600' : 'text-emerald-600'}">
+                                ${n.status === 'resubmit' ? '🔄 재제출 필요' : '🌟 피드백 완료'} · ${n.session}차시
+                              </span>
+                              <span class="text-slate-400 font-normal">${n.createdAt}</span>
+                            </div>
+                            <p class="text-xs text-slate-700 leading-relaxed">${n.message}</p>
+                            ${n.feedbackText ? `<p class="mt-1 text-xs bg-white/80 p-2 rounded-xl text-slate-600">"${n.feedbackText}"</p>` : ''}
+                          </div>
+                        `).join('')
+                      }
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+
+              <button onclick="logout()"
+                class="px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-cute text-sm transition">
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </header>
+      `;
+    }
+
+    function renderStudentRoadmap() {
+      const { grade, studentId } = AppState.user;
+      const list = AppState.data.curriculum[grade] || [];
+
+      let completedCount = 0;
+      list.forEach(item => {
+        const sub = AppState.data.submissions[`${studentId}_${grade}_${item.session}`];
+        if (sub && (sub.status === 'submitted' || sub.status === 'approved')) completedCount++;
+      });
+
+      return `
+        <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8">
+          <div class="bg-white/95 rounded-3xl p-6 sm:p-8 border-2 border-amber-100 soft-shadow mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <span class="inline-block px-3 py-1 rounded-full bg-rose-100 text-rose-600 font-cute text-xs mb-2">
+                중학교 ${grade}학년 전용 10차시 로드맵
+              </span>
+              <h2 class="font-cute text-2xl sm:text-3xl text-slate-800">주차별 영어 필체 교정 학습</h2>
+              <p class="text-sm text-slate-500 mt-1">원하는 차시를 눌러 원어민 발음을 듣고 4선지 노트에 반듯하게 연습해 보세요!</p>
+            </div>
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4 text-center min-w-[170px]">
+              <div class="text-xs text-amber-700 font-bold">나의 진행률</div>
+              <div class="font-title text-3xl font-bold text-amber-500 mt-0.5">${completedCount} <span class="text-base text-slate-400">/ 10차시</span></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            ${list.map(item => {
+              const subKey = `${studentId}_${grade}_${item.session}`;
+              const sub = AppState.data.submissions[subKey];
+              let badgeHtml = `<span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">미제출</span>`;
+              let cardBorder = 'border-slate-100 hover:border-rose-300';
+
+              if (sub) {
+                if (sub.status === 'approved') {
+                  badgeHtml = `<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">🌟 피드백 완료</span>`;
+                  cardBorder = 'border-emerald-200 bg-emerald-50/20';
+                } else if (sub.status === 'resubmit') {
+                  badgeHtml = `<span class="px-2.5 py-1 rounded-full bg-rose-100 text-rose-600 text-xs font-bold animate-pulse">🔄 재제출 필요</span>`;
+                  cardBorder = 'border-rose-300 bg-rose-50/30';
+                } else {
+                  badgeHtml = `<span class="px-2.5 py-1 rounded-full bg-sky-100 text-sky-700 text-xs font-bold">✅ 제출 완료</span>`;
+                  cardBorder = 'border-sky-200 bg-sky-50/20';
+                }
+              }
+
+              return `
+                <div onclick="openPracticeSession(${item.session})"
+                  class="bg-white rounded-3xl p-5 border-2 ${cardBorder} soft-shadow cursor-pointer transition transform hover:-translate-y-1 flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between mb-3">
+                      <span class="font-title text-lg font-bold text-rose-400">${item.session}차시</span>
+                      ${badgeHtml}
+                    </div>
+                    <div class="font-handwriting text-xl font-bold text-slate-800 mb-1">${item.word}</div>
+                    <div class="text-xs text-slate-400 mb-3">${item.wordMeaning}</div>
+                    <p class="text-xs text-slate-600 line-clamp-2 bg-amber-50/60 p-2.5 rounded-xl border border-amber-100/60">
+                      "${item.sentence}"
+                    </p>
+                  </div>
+                  <button class="mt-4 w-full py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-cute text-sm transition">
+                    ${sub && sub.status === 'resubmit' ? '피드백 보고 다시 쓰기 →' : sub ? '다시 연습하기 →' : '연습 시작하기 →'}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </main>
+      `;
+    }
+
+    function renderStudentPractice() {
+      const { grade, studentId } = AppState.user;
+      const session = AppState.activeSession;
+      const item = AppState.data.curriculum[grade][session - 1];
+      const subKey = `${studentId}_${grade}_${session}`;
+      const existing = AppState.data.submissions[subKey];
+
+      return `
+        <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <button onclick="AppState.studentView='roadmap'; renderApp();"
+              class="px-4 py-2 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-cute text-sm shadow-sm">
+              ← 차시 목록으로 돌아가기
+            </button>
+            <div class="font-cute text-lg text-slate-700">
+              중학교 ${grade}학년 · <span class="text-rose-500">${session}차시</span> 필체 교정 노트
+            </div>
+          </div>
+
+          ${existing && (existing.teacherTextFeedback || (existing.teacherAnnotations && Object.values(existing.teacherAnnotations).some(Boolean))) ? `
+            <div class="mb-6 rounded-3xl p-5 border-2 ${existing.status === 'resubmit' ? 'bg-rose-50 border-rose-300' : 'bg-emerald-50 border-emerald-300'} soft-shadow">
+              <div class="flex items-center gap-2 font-cute text-lg ${existing.status === 'resubmit' ? 'text-rose-600' : 'text-emerald-700'} mb-2">
+                <span>${existing.status === 'resubmit' ? '🔄 선생님의 재제출 요청 & 피드백' : '🌟 선생님의 칭찬 & 교정 피드백'}</span>
+              </div>
+              ${existing.teacherTextFeedback ? `
+                <p class="bg-white p-3.5 rounded-2xl text-sm text-slate-700 border border-slate-100 mb-3">
+                  💬 <strong>선생님 말씀:</strong> ${existing.teacherTextFeedback}
+                </p>
+              ` : ''}
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                ${['wordSolo1', 'sentenceSolo1'].map(k => {
+                  const baseImg = existing[k + 'Img'];
+                  const penImg = existing.teacherAnnotations ? existing.teacherAnnotations[k] : null;
+                  if (!penImg) return '';
+                  return `
+                    <div class="bg-white p-3 rounded-2xl border border-rose-200">
+                      <div class="text-xs font-bold text-rose-500 mb-1">🖍️ 선생님 빨간펜 첨삭 (${k === 'wordSolo1' ? '단어 혼자쓰기 1' : '문장 혼자쓰기 1'})</div>
+                      <div class="relative w-full rounded-xl overflow-hidden border border-slate-100">
+                        <img src="${baseImg}" class="w-full block" />
+                        <img src="${penImg}" class="absolute inset-0 w-full h-full pointer-events-none" />
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- 펜 도구 툴바 -->
+          <div class="sticky top-16 z-20 bg-white/95 backdrop-blur rounded-3xl p-3.5 border-2 border-sky-100 soft-shadow mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <button onclick="CanvasManager.tool='pen'; renderApp();"
+                class="px-3.5 py-2 rounded-2xl font-cute text-sm flex items-center gap-1.5 transition ${CanvasManager.tool === 'pen' ? 'bg-sky-500 text-white shadow' : 'bg-slate-100 text-slate-600'}">
+                🖊️ S펜 / 펜
+              </button>
+              <button onclick="CanvasManager.tool='eraser'; renderApp();"
+                class="px-3.5 py-2 rounded-2xl font-cute text-sm flex items-center gap-1.5 transition ${CanvasManager.tool === 'eraser' ? 'bg-amber-500 text-white shadow' : 'bg-slate-100 text-slate-600'}">
+                🧽 지우개
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-slate-400 mr-1">펜 색상:</span>
+              ${['#1E293B', '#2563EB', '#E11D48', '#059669'].map(c => `
+                <button onclick="CanvasManager.tool='pen'; CanvasManager.color='${c}'; renderApp();"
+                  style="background-color: ${c};"
+                  class="w-7 h-7 rounded-full border-2 transition ${CanvasManager.tool === 'pen' && CanvasManager.color === c ? 'border-amber-400 scale-110 ring-2 ring-amber-200' : 'border-white shadow'}">
+                </button>
+              `).join('')}
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-slate-400 mr-1">굵기:</span>
+              ${[{ label: '얇게', w: 2.2 }, { label: '보통', w: 3.5 }, { label: '굵게', w: 5.2 }].map(b => `
+                <button onclick="CanvasManager.lineWidth=${b.w}; renderApp();"
+                  class="px-2.5 py-1 rounded-xl text-xs font-bold transition ${CanvasManager.lineWidth === b.w ? 'bg-rose-100 text-rose-600 border border-rose-300' : 'bg-slate-100 text-slate-500'}">
+                  ${b.label}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- STEP 1: 핵심 단어 연습 -->
+          <section class="bg-white rounded-3xl p-5 sm:p-7 border-2 border-rose-100 soft-shadow mb-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-rose-50">
+              <div>
+                <span class="px-3 py-1 rounded-full bg-rose-100 text-rose-600 font-cute text-xs">STEP 1 · 핵심 단어 연습</span>
+                <div class="flex items-baseline gap-3 mt-2">
+                  <h3 class="font-handwriting text-3xl font-bold text-slate-800">${item.word}</h3>
+                  <span class="text-base font-bold text-rose-500">${item.wordMeaning}</span>
+                </div>
+              </div>
+              <button onclick="speakEnglish('${item.word.replace(/'/g, "\\'")}', 0.85)"
+                class="px-4 py-2.5 rounded-2xl bg-amber-100 hover:bg-amber-200 text-amber-800 font-cute text-sm flex items-center gap-2 btn-bouncy">
+                <span>🔊 단어 발음 듣기</span>
+              </button>
+            </div>
+
+            <!-- 1-1. 따라쓰기 -->
+            <div class="mb-5">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-bold text-slate-600">1-1. 연하게 따라 쓰기</span>
+                <div class="flex gap-1.5">
+                  <button onclick="CanvasManager.undo('canvas-word-trace')" class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs text-slate-600">↩ 되돌리기</button>
+                  <button onclick="CanvasManager.clear('canvas-word-trace')" class="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs text-rose-600">🗑️ 지우기</button>
+                </div>
+              </div>
+              ${renderFourLineField('canvas-word-trace', item.word)}
+            </div>
+
+            <!-- 1-2. 혼자쓰기 1 -->
+            <div class="space-y-4">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm font-bold text-slate-600">1-2. 혼자 바르게 쓰기 (첫 번째 칸)</span>
+                  <div class="flex gap-1.5">
+                    <button onclick="CanvasManager.undo('canvas-word-solo1')" class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs text-slate-600">↩ 되돌리기</button>
+                    <button onclick="CanvasManager.clear('canvas-word-solo1')" class="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs text-rose-600">🗑️ 지우기</button>
+                  </div>
+                </div>
+                ${renderFourLineField('canvas-word-solo1', null)}
+              </div>
+
+              <!-- 1-3. 혼자쓰기 2 -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm font-bold text-slate-600">1-3. 혼자 바르게 쓰기 (두 번째 칸)</span>
+                  <div class="flex gap-1.5">
+                    <button onclick="CanvasManager.undo('canvas-word-solo2')" class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs text-slate-600">↩ 되돌리기</button>
+                    <button onclick="CanvasManager.clear('canvas-word-solo2')" class="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs text-rose-600">🗑️ 지우기</button>
+                  </div>
+                </div>
+                ${renderFourLineField('canvas-word-solo2', null)}
+              </div>
+            </div>
+          </section>
+
+          <!-- STEP 2: 핵심 문장 연습 -->
+          <section class="bg-white rounded-3xl p-5 sm:p-7 border-2 border-sky-100 soft-shadow mb-8">
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-sky-50">
+              <div>
+                <span class="px-3 py-1 rounded-full bg-sky-100 text-sky-600 font-cute text-xs">STEP 2 · 핵심 문장 연습</span>
+                <h3 class="font-handwriting text-2xl sm:text-3xl font-bold text-slate-800 mt-2">${item.sentence}</h3>
+                <p class="text-sm font-medium text-sky-600 mt-1">${item.sentenceMeaning}</p>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="speakEnglish('${item.sentence.replace(/'/g, "\\'")}', 0.88)"
+                  class="px-4 py-2.5 rounded-2xl bg-sky-100 hover:bg-sky-200 text-sky-800 font-cute text-sm flex items-center gap-1.5 btn-bouncy">
+                  <span>🔊 문장 듣기</span>
+                </button>
+                <button onclick="speakEnglish('${item.sentence.replace(/'/g, "\\'")}', 0.65)"
+                  class="px-3.5 py-2.5 rounded-2xl bg-purple-100 hover:bg-purple-200 text-purple-800 font-cute text-sm flex items-center gap-1 btn-bouncy">
+                  <span>🐢 천천히</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2-1. 따라쓰기 -->
+            <div class="mb-5">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-bold text-slate-600">2-1. 문장 연하게 따라 쓰기</span>
+                <div class="flex gap-1.5">
+                  <button onclick="CanvasManager.undo('canvas-sentence-trace')" class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs text-slate-600">↩ 되돌리기</button>
+                  <button onclick="CanvasManager.clear('canvas-sentence-trace')" class="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs text-rose-600">🗑️ 지우기</button>
+                </div>
+              </div>
+              ${renderFourLineField('canvas-sentence-trace', item.sentence)}
+            </div>
+
+            <!-- 2-2. 혼자쓰기 1 -->
+            <div class="space-y-4">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm font-bold text-slate-600">2-2. 문장 혼자 바르게 쓰기 (첫 번째 칸)</span>
+                  <div class="flex gap-1.5">
+                    <button onclick="CanvasManager.undo('canvas-sentence-solo1')" class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs text-slate-600">↩ 되돌리기</button>
+                    <button onclick="CanvasManager.clear('canvas-sentence-solo1')" class="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs text-rose-600">🗑️ 지우기</button>
+                  </div>
+                </div>
+                ${renderFourLineField('canvas-sentence-solo1', null)}
+              </div>
+
+              <!-- 2-3. 혼자쓰기 2 -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm font-bold text-slate-600">2-3. 문장 혼자 바르게 쓰기 (두 번째 칸)</span>
+                  <div class="flex gap-1.5">
+                    <button onclick="CanvasManager.undo('canvas-sentence-solo2')" class="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs text-slate-600">↩ 되돌리기</button>
+                    <button onclick="CanvasManager.clear('canvas-sentence-solo2')" class="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs text-rose-600">🗑️ 지우기</button>
+                  </div>
+                </div>
+                ${renderFourLineField('canvas-sentence-solo2', null)}
+              </div>
+            </div>
+          </section>
+
+          <div class="flex justify-center pb-10">
+            <button onclick="submitPracticeWork()"
+              class="px-10 py-4 rounded-3xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-cute text-xl shadow-lg btn-bouncy">
+              ${existing && existing.status === 'resubmit' ? '수정 완료 · 다시 제출하기 📮' : '연습 완료 · 선생님께 제출하기 📮'}
+            </button>
+          </div>
+        </main>
+      `;
+    }
+
+    function renderTeacherHeader() {
+      return `
+        <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b-2 border-sky-100 px-4 sm:px-8 py-3">
+          <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">👩‍🏫</span>
+              <div>
+                <h1 class="font-title text-xl sm:text-2xl font-bold text-slate-800 leading-none">
+                  <span class="text-rose-400">ENGLISH</span> <span class="text-sky-500">HANDWRITING</span>
+                </h1>
+                <p class="text-xs text-sky-600 font-bold mt-0.5">교사용 통합 관리 & 학생 포트폴리오 대시보드</p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="AppState.teacherTab='dashboard'; renderApp();"
+                class="px-4 py-2 rounded-2xl font-cute text-sm transition ${AppState.teacherTab === 'dashboard' ? 'bg-sky-500 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                📂 학생 제출함 & 포트폴리오
+              </button>
+              <button onclick="AppState.teacherTab='manage'; renderApp();"
+                class="px-4 py-2 rounded-2xl font-cute text-sm transition ${AppState.teacherTab === 'manage' ? 'bg-amber-400 text-slate-900 shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                ⚙️ 학생 일괄등록 · 설정 관리
+              </button>
+              <button onclick="syncFromCloud(false)"
+                class="px-3.5 py-2 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-cute text-sm transition">
+                🔄 새로고침
+              </button>
+              <button onclick="logout()"
+                class="px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-cute text-sm transition">
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </header>
+      `;
+    }
+
+    function renderTeacherDashboard() {
+      const allSubs = Object.values(AppState.data.submissions || {});
+      const totalStudents = Object.keys(AppState.data.students || {}).length;
+      const pendingCount = allSubs.filter(s => s.status === 'submitted').length;
+      const resubmitCount = allSubs.filter(s => s.status === 'resubmit').length;
+      const approvedCount = allSubs.filter(s => s.status === 'approved').length;
+
+      const filtered = allSubs.filter(s => {
+        if (AppState.teacherFilterGrade !== 'all' && String(s.grade) !== String(AppState.teacherFilterGrade)) return false;
+        if (AppState.teacherFilterStatus !== 'all' && s.status !== AppState.teacherFilterStatus) return false;
+        if (AppState.teacherSearchQuery && !String(s.studentId).includes(AppState.teacherSearchQuery.trim())) return false;
+        return true;
+      }).sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''));
+
+      return `
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-8">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-3xl p-5 border-2 border-slate-100 soft-shadow">
+              <div class="text-xs font-bold text-slate-400">등록된 전체 학생</div>
+              <div class="font-title text-3xl font-bold text-slate-800 mt-1">${totalStudents}명</div>
+            </div>
+            <div class="bg-white rounded-3xl p-5 border-2 border-sky-100 soft-shadow">
+              <div class="text-xs font-bold text-sky-500">피드백 대기 중</div>
+              <div class="font-title text-3xl font-bold text-sky-600 mt-1">${pendingCount}건</div>
+            </div>
+            <div class="bg-white rounded-3xl p-5 border-2 border-rose-100 soft-shadow">
+              <div class="text-xs font-bold text-rose-500">재제출 요청 중</div>
+              <div class="font-title text-3xl font-bold text-rose-600 mt-1">${resubmitCount}건</div>
+            </div>
+            <div class="bg-white rounded-3xl p-5 border-2 border-emerald-100 soft-shadow">
+              <div class="text-xs font-bold text-emerald-500">피드백 완료</div>
+              <div class="font-title text-3xl font-bold text-emerald-600 mt-1">${approvedCount}건</div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border-2 border-sky-100 soft-shadow mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-bold text-slate-400 mr-1">학년:</span>
+              ${['all', '1', '2', '3'].map(g => `
+                <button onclick="AppState.teacherFilterGrade='${g}'; renderApp();"
+                  class="px-3.5 py-1.5 rounded-xl font-cute text-sm transition ${AppState.teacherFilterGrade === g ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600'}">
+                  ${g === 'all' ? '전체 학년' : `중${g}`}
+                </button>
+              `).join('')}
+
+              <span class="text-xs font-bold text-slate-400 ml-3 mr-1">상태:</span>
+              ${[
+                { id: 'all', label: '전체' },
+                { id: 'submitted', label: '피드백 대기' },
+                { id: 'resubmit', label: '재제출 요청' },
+                { id: 'approved', label: '완료' }
+              ].map(st => `
+                <button onclick="AppState.teacherFilterStatus='${st.id}'; renderApp();"
+                  class="px-3.5 py-1.5 rounded-xl font-cute text-sm transition ${AppState.teacherFilterStatus === st.id ? 'bg-rose-400 text-white' : 'bg-slate-100 text-slate-600'}">
+                  ${st.label}
+                </button>
+              `).join('')}
+            </div>
+
+            <div class="w-full sm:w-64">
+              <input type="text" value="${AppState.teacherSearchQuery}"
+                oninput="AppState.teacherSearchQuery=this.value; renderApp();"
+                placeholder="🔍 학번으로 검색 (예: 10101)"
+                class="w-full px-4 py-2 rounded-2xl bg-slate-50 border border-slate-200 focus:border-sky-400 outline-none text-sm" />
+            </div>
+          </div>
+
+          ${filtered.length === 0 ? `
+            <div class="bg-white/90 rounded-3xl p-12 text-center border-2 border-dashed border-slate-200">
+              <div class="text-4xl mb-3">📭</div>
+              <p class="font-cute text-xl text-slate-600">조건에 해당하는 제출 기록이 아직 없습니다.</p>
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              ${filtered.map(sub => {
+                const statusBadge = sub.status === 'approved'
+                  ? `<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">🌟 피드백 완료</span>`
+                  : sub.status === 'resubmit'
+                    ? `<span class="px-2.5 py-1 rounded-full bg-rose-100 text-rose-600 text-xs font-bold">🔄 재제출 요청</span>`
+                    : `<span class="px-2.5 py-1 rounded-full bg-sky-100 text-sky-700 text-xs font-bold">🆕 피드백 대기</span>`;
+
+                return `
+                  <div class="bg-white rounded-3xl p-5 border-2 border-slate-100 hover:border-sky-300 soft-shadow transition flex flex-col justify-between">
+                    <div>
+                      <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                          <span class="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-800 font-cute text-xs">중${sub.grade}</span>
+                          <span class="font-cute text-lg text-slate-800">${sub.studentId}</span>
+                          <span class="text-xs font-bold text-rose-500">· ${sub.session}차시</span>
+                        </div>
+                        ${statusBadge}
+                      </div>
+
+                      <div class="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 mb-3 relative">
+                        <img src="${sub.sentenceSolo1Img}" alt="학생 문장 필체" class="w-full h-28 object-contain bg-white" />
+                        ${sub.teacherAnnotations && sub.teacherAnnotations.sentenceSolo1 ? `
+                          <img src="${sub.teacherAnnotations.sentenceSolo1}" class="absolute inset-0 w-full h-28 object-contain pointer-events-none" />
+                        ` : ''}
+                      </div>
+
+                      <div class="flex items-center justify-between text-xs text-slate-400 mb-3">
+                        <span>제출: ${sub.submittedAt}</span>
+                        <span>제출횟수: ${sub.attemptCount || 1}회</span>
+                      </div>
+                    </div>
+
+                    <button onclick="openTeacherFeedbackModal('${sub.key}')"
+                      class="w-full py-2.5 rounded-2xl bg-gradient-to-r from-sky-400 to-indigo-500 hover:from-sky-500 hover:to-indigo-600 text-white font-cute text-sm shadow btn-bouncy">
+                      🖍️ 전체 포트폴리오 보기 & 펜 첨삭하기
+                    </button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </main>
+      `;
+    }
+
+    function renderTeacherFeedbackModal() {
+      const sub = AppState.data.submissions[AppState.teacherSelectedSubmission];
+      if (!sub) return '';
+      const currItem = AppState.data.curriculum[sub.grade][sub.session - 1];
+      const target = TeacherPenManager.activeTarget;
+
+      const tabs = [
+        { key: 'wordTrace', label: '단어 따라쓰기' },
+        { key: 'wordSolo1', label: '단어 혼자쓰기①' },
+        { key: 'wordSolo2', label: '단어 혼자쓰기②' },
+        { key: 'sentenceTrace', label: '문장 따라쓰기' },
+        { key: 'sentenceSolo1', label: '문장 혼자쓰기①' },
+        { key: 'sentenceSolo2', label: '문장 혼자쓰기②' }
+      ];
+
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div class="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-7 shadow-2xl border-2 border-sky-200 my-auto max-h-[94vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="px-3 py-1 rounded-full bg-sky-100 text-sky-700 font-cute text-xs">중학교 ${sub.grade}학년</span>
+                  <h3 class="font-cute text-2xl text-slate-800">${sub.studentId} 학생 · ${sub.session}차시 첨삭</h3>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">목표 단어: <strong>${currItem.word}</strong> / 목표 문장: <strong>${currItem.sentence}</strong></p>
+              </div>
+              <button onclick="AppState.teacherSelectedSubmission=null; renderApp();"
+                class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold">✕</button>
+            </div>
+
+            <div class="flex flex-wrap gap-2 mb-4">
+              ${tabs.map(t => `
+                <button onclick="switchTeacherPenTarget('${t.key}')"
+                  class="px-3.5 py-2 rounded-2xl font-cute text-xs sm:text-sm transition ${target === t.key ? 'bg-rose-500 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                  ${t.label}
+                </button>
+              `).join('')}
+            </div>
+
+            <div class="bg-amber-50/60 p-4 rounded-3xl border-2 border-amber-100 mb-4">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <span class="text-xs font-bold text-rose-600">🖍️ 학생 글씨 위에 직접 빨간펜으로 교정 표시를 그려주세요!</span>
+                <div class="flex items-center gap-2">
+                  ${['#EF4444', '#2563EB', '#10B981'].map(c => `
+                    <button onclick="TeacherPenManager.color='${c}'; renderApp();"
+                      style="background-color:${c};"
+                      class="w-6 h-6 rounded-full border-2 ${TeacherPenManager.color === c ? 'border-slate-800 scale-110' : 'border-white'}"></button>
+                  `).join('')}
+                  <button onclick="TeacherPenManager.clearCurrent()"
+                    class="px-3 py-1 rounded-xl bg-white border border-rose-200 text-xs text-rose-600 font-bold hover:bg-rose-50">
+                    펜 지우기
+                  </button>
+                </div>
+              </div>
+
+              <div class="relative w-full max-w-[680px] mx-auto bg-white rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner">
+                <img id="teacher-base-img" src="${sub[target + 'Img']}" class="w-full block select-none pointer-events-none" />
+                <canvas id="teacher-pen-canvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+              </div>
+            </div>
+
+            <div class="mb-5">
+              <label class="block text-sm font-bold text-slate-700 mb-1.5">💬 텍스트 칭찬 및 교정 코멘트</label>
+              <textarea id="teacher-feedback-text" rows="2" placeholder="예: 대문자 첫 글자와 소문자 높낮이 비율을 기준선에 맞춰 예쁘게 잘 썼어요! 참 잘했어요 :)"
+                class="w-full px-4 py-3 rounded-2xl bg-slate-50 border-2 border-slate-200 focus:border-sky-400 focus:bg-white outline-none text-sm">${sub.teacherTextFeedback || ''}</textarea>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-end gap-3">
+              <button onclick="saveTeacherFeedback('resubmit')"
+                class="px-5 py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-cute text-base shadow btn-bouncy">
+                🔄 재제출 요청 보내기
+              </button>
+              <button onclick="saveTeacherFeedback('approved')"
+                class="px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-cute text-base shadow btn-bouncy">
+                🌟 피드백 완료 & 승인하기
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTeacherManageView() {
+      const studentsArr = Object.values(AppState.data.students || {}).sort((a, b) => String(a.studentId).localeCompare(String(b.studentId)));
+      const filteredStudents = AppState.studentListFilterGrade === 'all'
+        ? studentsArr
+        : studentsArr.filter(s => String(s.grade) === String(AppState.studentListFilterGrade));
+
+      const mg = AppState.teacherManageGrade;
+      const currList = AppState.data.curriculum[mg] || [];
+
+      return `
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-8 space-y-8">
+          <section class="bg-white rounded-3xl p-6 sm:p-8 border-2 border-sky-100 soft-shadow">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <div>
+                <h2 class="font-cute text-2xl text-slate-800">👥 학생 학번 · 비밀번호 일괄 등록 & 관리</h2>
+                <p class="text-sm text-slate-500 mt-1">선생님이 등록한 학번과 비밀번호만 로그인할 수 있으며, 타 학년 학습 내용은 자동으로 차단됩니다.</p>
+              </div>
+              <span class="px-4 py-1.5 rounded-full bg-sky-100 text-sky-700 font-cute text-sm">
+                현재 등록 인원: 총 ${studentsArr.length}명
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="bg-sky-50/50 rounded-3xl p-5 border border-sky-100">
+                <div class="flex items-center justify-between mb-2">
+                  <label class="font-bold text-sm text-slate-700">엑셀 표 붙여넣기 (학번 / 비밀번호)</label>
+                  <button onclick="fillSampleBulkStudents()" class="text-xs text-sky-600 underline hover:text-sky-800">예시 채우기</button>
+                </div>
+                <textarea id="bulk-student-input" rows="6" placeholder="10101&#9;1234&#10;10102&#9;1234&#10;20101&#9;1234&#10;30101&#9;1234"
+                  class="w-full p-3.5 rounded-2xl bg-white border-2 border-sky-100 focus:border-sky-400 outline-none text-sm font-mono mb-3"></textarea>
+
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="font-bold text-slate-600">비번 미입력 시:</span>
+                    <select id="bulk-default-pw-mode" class="px-3 py-2 rounded-xl bg-white border border-slate-200 font-bold text-slate-700">
+                      <option value="1234">1234 로 통일</option>
+                      <option value="same_as_id">학번과 동일하게</option>
+                    </select>
+                  </div>
+                  <button onclick="handleBulkRegisterStudents()"
+                    class="px-5 py-2.5 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-cute text-sm shadow btn-bouncy">
+                    일괄 등록하기 ✨
+                  </button>
+                </div>
+              </div>
+
+              <div class="bg-slate-50/70 rounded-3xl p-5 border border-slate-200 flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                  <span class="font-bold text-sm text-slate-700">등록된 학생 계정 목록</span>
+                  <div class="flex gap-1">
+                    ${['all', '1', '2', '3'].map(g => `
+                      <button onclick="AppState.studentListFilterGrade='${g}'; renderApp();"
+                        class="px-2.5 py-1 rounded-xl text-xs font-bold ${AppState.studentListFilterGrade === g ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}">
+                        ${g === 'all' ? '전체' : `중${g}`}
+                      </button>
+                    `).join('')}
+                  </div>
+                </div>
+
+                <div class="flex-1 max-h-64 overflow-y-auto bg-white rounded-2xl border border-slate-200">
+                  <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-slate-100 text-slate-600 text-xs sticky top-0">
+                      <tr>
+                        <th class="py-2.5 px-3">학년</th>
+                        <th class="py-2.5 px-3">학번</th>
+                        <th class="py-2.5 px-3">비밀번호</th>
+                        <th class="py-2.5 px-3 text-right">관리</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                      ${filteredStudents.length === 0 ? `
+                        <tr><td colspan="4" class="py-8 text-center text-xs text-slate-400">등록된 학생 계정이 없습니다.</td></tr>
+                      ` : filteredStudents.map(st => `
+                        <tr class="hover:bg-slate-50">
+                          <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold">중${st.grade}</span></td>
+                          <td class="py-2 px-3 font-bold text-slate-800">${st.studentId}</td>
+                          <td class="py-2 px-3 font-mono text-xs text-slate-500">${st.password}</td>
+                          <td class="py-2 px-3 text-right space-x-1">
+                            <button onclick="resetStudentPassword('${st.studentId}')" class="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs">비번초기화</button>
+                            <button onclick="deleteStudentAccount('${st.studentId}')" class="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs">삭제</button>
+                          </td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="bg-white rounded-3xl p-6 sm:p-8 border-2 border-amber-100 soft-shadow">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <div>
+                <h2 class="font-cute text-2xl text-slate-800">📝 학년별 10차시 단어 · 문장 커리큘럼 수정</h2>
+                <p class="text-sm text-slate-500 mt-1">우리 학교 수업 진도에 맞게 단어와 예문, 해석을 자유롭게 수정할 수 있습니다.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                ${[1, 2, 3].map(g => `
+                  <button onclick="AppState.teacherManageGrade=${g}; renderApp();"
+                    class="px-4 py-2 rounded-2xl font-cute text-sm transition ${mg === g ? 'bg-amber-400 text-slate-900 shadow' : 'bg-slate-100 text-slate-600'}">
+                    중학교 ${g}학년
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+              ${currList.map((item, idx) => `
+                <div class="p-4 rounded-2xl bg-amber-50/40 border border-amber-100 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                  <div class="md:col-span-1 font-title font-bold text-rose-500 text-center">${item.session}차시</div>
+                  <div class="md:col-span-2">
+                    <label class="block text-[11px] text-slate-400">핵심 단어</label>
+                    <input type="text" value="${item.word}" onchange="updateCurriculumField(${mg}, ${idx}, 'word', this.value)"
+                      class="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-sm font-handwriting font-bold" />
+                  </div>
+                  <div class="md:col-span-2">
+                    <label class="block text-[11px] text-slate-400">단어 뜻</label>
+                    <input type="text" value="${item.wordMeaning}" onchange="updateCurriculumField(${mg}, ${idx}, 'wordMeaning', this.value)"
+                      class="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-sm" />
+                  </div>
+                  <div class="md:col-span-4">
+                    <label class="block text-[11px] text-slate-400">핵심 문장</label>
+                    <input type="text" value="${item.sentence}" onchange="updateCurriculumField(${mg}, ${idx}, 'sentence', this.value)"
+                      class="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-sm font-handwriting" />
+                  </div>
+                  <div class="md:col-span-3">
+                    <label class="block text-[11px] text-slate-400">문장 해석</label>
+                    <input type="text" value="${item.sentenceMeaning}" onchange="updateCurriculumField(${mg}, ${idx}, 'sentenceMeaning', this.value)"
+                      class="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-sm" />
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="mt-5 flex justify-end">
+              <button onclick="saveCurriculumChanges()"
+                class="px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-cute text-base shadow btn-bouncy">
+                💾 10차시 커리큘럼 변경사항 저장
+              </button>
+            </div>
+          </section>
+
+          <section class="bg-white rounded-3xl p-6 sm:p-8 border-2 border-rose-100 soft-shadow">
+            <h2 class="font-cute text-xl text-slate-800 mb-2">🔒 교사 대시보드 비밀번호 변경</h2>
+            <div class="flex flex-wrap items-center gap-3 max-w-md">
+              <input id="new-teacher-pw" type="password" placeholder="새 교사 비밀번호 (4자리 이상)"
+                class="flex-1 px-4 py-2.5 rounded-2xl bg-rose-50/40 border-2 border-rose-100 focus:border-rose-400 outline-none text-sm" />
+              <button onclick="updateTeacherPassword()"
+                class="px-5 py-2.5 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-cute text-sm shadow btn-bouncy">
+                저장
+              </button>
+            </div>
+          </section>
+        </main>
+      `;
+    }
+
+    renderApp();
+    syncFromCloud(true);
+  </script>
+</body>
+</html>
